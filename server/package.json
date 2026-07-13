@@ -1,0 +1,12 @@
+{
+  "name": "jke-ai-gateway",
+  "private": true,
+  "type": "module",
+  "version": "2.0.0",
+  "scripts": {
+    "start": "node ai-gateway.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

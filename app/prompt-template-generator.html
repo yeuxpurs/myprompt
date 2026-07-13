@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%232563eb%27/%3E%3Ctext x=%2732%27 y=%2742%27 text-anchor=%27middle%27 font-size=%2732%27 fill=%27white%27%3EAI%3C/text%3E%3C/svg%3E">
+    <title>GPT-5.6 Prompt Template Generator · JKE AX Bridge</title>
+    <style>
+        :root {
+            /* Editorial palette — matched to AX Bridge Nav */
+            --paper: #faf8f5;
+            --paper-deep: #f3ede3;
+            --paper-sunk: #ede6d8;
+            --ink: #1a1a2e;
+            --ink-muted: #5a5a6e;
+            --ink-faint: #8a8578;
+            --navy: #1a5276;
+            --navy-deep: #0f3a54;
+            --navy-soft: rgba(26, 82, 118, 0.08);
+            --navy-softer: rgba(26, 82, 118, 0.04);
+            --red: #c0392b;
+            --red-deep: #922b20;
+            --red-soft: rgba(192, 57, 43, 0.08);
+            --gold: #8a7545;
+            --hairline: rgba(26, 82, 118, 0.16);
+            --hairline-soft: rgba(26, 82, 118, 0.09);
+            --success: #2d6a4f;
+            --warning: #b08538;
+
+            --font-display: 'Playfair Display', 'Noto Serif JP', 'Source Han Serif', Georgia, serif;
+            --font-body: 'Noto Sans JP', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
+
+            --r-xs: 2px;
+            --r-sm: 4px;
+            --r-md: 6px;
+        }
+        [data-theme="dark"] {
+            --paper: #0f1117;
+            --paper-deep: #161924;
+            --paper-sunk: #1c2030;
+            --ink: #e8e4db;
+            --ink-muted: #a8a59d;
+            --ink-faint: #64708a;
+            --navy: #63b3ed;
+            --navy-deep: #4a9fdc;
+            --navy-soft: rgba(99, 179, 237, 0.10);
+            --navy-softer: rgba(99, 179, 237, 0.05);
+            --red: #e8716f;
+            --red-deep: #d55856;
+            --red-soft: rgba(232, 113, 111, 0.10);
+            --gold: #c9a876;
+            --hairline: rgba(232, 228, 219, 0.14);
+            --hairline-soft: rgba(232, 228, 219, 0.08);
+            --success: #81c784;
+            --warning: #e0b564;
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-padding-top: 60px; }
+        body {
+            font-family: var(--font-body);
+            background: var(--paper);
+            color: var(--ink);
+            min-height: 100vh;
+            line-height: 1.6;
+            font-feature-settings: "kern", "liga", "calt";
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-image:
+                radial-gradient(circle at 10% 0%, var(--navy-softer), transparent 40%),
+                radial-gradient(circle at 90% 100%, var(--red-soft), transparent 40%);
+            background-attachment: fixed;
+        }
+
+        /* ================================================================
+           AX BRIDGE NAV (preserved, cleaned)
+           ================================================================ */
+        .ax-bridge-nav {
+            position: sticky;
+            top: 0;
+            z-index: 9999;
+            background: rgba(250, 248, 245, 0.92);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--hairline);
+            font-family: var(--font-body);
+            color: var(--ink);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        [data-theme="dark"] .ax-bridge-nav {
+            background: rgba(15, 17, 23, 0.92);
+            border-bottom-color: var(--hairline);
+        }
+        .ax-bridge-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 10px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .ax-bridge-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.2s;
+        }
+        .ax-bridge-brand:hover { transform: translateX(-2px); }
+        .ax-bridge-mark {
+            width: 28px; height: 28px;
+            background: linear-gradient(135deg, var(--navy), var(--red));
+            border-radius: 5px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; color: #fff;
+            box-shadow: 0 3px 10px rgba(26, 82, 118, 0.22);
+            flex-shrink: 0;
+        }
+        .ax-bridge-brand-text { display: flex; flex-direction: column; line-height: 1.1; }
+        .ax-bridge-brand-name {
+            font-family: var(--font-display);
+            font-size: 15px; font-weight: 700; letter-spacing: -0.2px;
+        }
+        .ax-bridge-brand-sub {
+            font-size: 9px; text-transform: uppercase; letter-spacing: 1.8px;
+            color: var(--ink-faint); font-weight: 600; margin-top: 1px;
+        }
+        .ax-bridge-arrow { opacity: 0.5; font-size: 11px; margin: 0 2px; }
+        .ax-bridge-tool {
+            font-size: 12px; font-weight: 500; color: var(--navy);
+            padding: 3px 10px; background: var(--navy-soft);
+            border-radius: 5px; letter-spacing: 0.1px;
+        }
+        .ax-bridge-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .ax-chip {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 10px; padding: 3px 8px; border-radius: 999px;
+            font-weight: 600; letter-spacing: 0.5px;
+            text-transform: uppercase; white-space: nowrap;
+        }
+        .ax-chip.tier2 { background: rgba(255, 183, 77, 0.14); color: #ef6c00; }
+        .ax-chip.approved { background: rgba(45, 106, 79, 0.12); color: var(--success); }
+        .ax-chip::before {
+            content: ''; width: 5px; height: 5px;
+            border-radius: 50%; background: currentColor;
+        }
+        [data-theme="dark"] .ax-chip.tier2 { color: #ffb74d; }
+        .ax-bench-note {
+            font-size: 10.5px; color: var(--ink-faint);
+            font-style: italic; padding-left: 10px;
+            border-left: 1px solid var(--hairline);
+        }
+        .theme-toggle {
+            background: transparent;
+            border: 1px solid var(--hairline);
+            color: var(--ink-muted);
+            width: 28px; height: 28px;
+            border-radius: var(--r-sm);
+            cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .theme-toggle:hover {
+            border-color: var(--navy);
+            color: var(--navy);
+            background: var(--navy-soft);
+        }
+
+        /* ================================================================
+           PAGE CONTAINER — editorial document frame
+           ================================================================ */
+        .container {
+            max-width: 1240px;
+            margin: 0 auto;
+            padding: 48px 28px 80px;
+        }
+
+        /* ================================================================
+           MASTHEAD
+           ================================================================ */
+        .masthead {
+            border-top: 3px double var(--ink);
+            border-bottom: 1px solid var(--hairline);
+            padding: 36px 0 28px;
+            margin-bottom: 48px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 32px;
+            align-items: end;
+        }
+        .masthead-left { min-width: 0; }
+        .kicker {
+            font-family: var(--font-body);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2.4px;
+            color: var(--red);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .kicker::before, .kicker::after {
+            content: '';
+            height: 1px;
+            background: var(--red);
+            flex: 0 0 24px;
+            opacity: 0.5;
+        }
+        .kicker::after { flex: 1 1 auto; opacity: 0.2; }
+        .masthead h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2.2rem, 4.5vw, 3.4rem);
+            font-weight: 900;
+            line-height: 1.05;
+            letter-spacing: -0.02em;
+            color: var(--ink);
+            margin-bottom: 14px;
+        }
+        .masthead .deck {
+            font-family: var(--font-display);
+            font-style: italic;
+            font-weight: 400;
+            font-size: 1.05rem;
+            color: var(--ink-muted);
+            max-width: 58ch;
+            line-height: 1.5;
+        }
+        .masthead-right {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-end;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--ink-faint);
+            letter-spacing: 0.5px;
+        }
+        .dateline {
+            text-transform: uppercase;
+            border-top: 1px solid var(--hairline);
+            border-bottom: 1px solid var(--hairline);
+            padding: 6px 0;
+            width: 100%;
+            text-align: right;
+        }
+        .language-select {
+            font-family: var(--font-body);
+            background: transparent;
+            border: 1px solid var(--hairline);
+            padding: 8px 32px 8px 12px;
+            border-radius: var(--r-sm);
+            color: var(--ink);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            min-width: 160px;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%231a5276' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            transition: border-color 0.2s;
+        }
+        [data-theme="dark"] .language-select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%2363b3ed' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+        }
+        .language-select:hover { border-color: var(--navy); }
+        .language-select:focus {
+            outline: none;
+            border-color: var(--navy);
+            box-shadow: 0 0 0 3px var(--navy-soft);
+        }
+        .language-select option {
+            background: var(--paper);
+            color: var(--ink);
+        }
+
+        /* ================================================================
+           FRAMEWORK TABS — underlined index, like a table of contents
+           ================================================================ */
+        .tabs-wrapper {
+            border-bottom: 1px solid var(--hairline);
+            margin-bottom: 40px;
+            position: relative;
+        }
+        .tabs-wrapper::before {
+            content: 'FRAMEWORKS / 工具目次';
+            position: absolute;
+            top: -20px;
+            left: 0;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: var(--ink-faint);
+        }
+        .tabs {
+            display: flex;
+            gap: 0;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab-button {
+            flex-shrink: 0;
+            padding: 14px 20px 14px 0;
+            margin-right: 28px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--ink-muted);
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            transition: color 0.2s, border-color 0.2s;
+            position: relative;
+        }
+        .tab-button .tab-index {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--ink-faint);
+            margin-right: 8px;
+            font-weight: 500;
+        }
+        .tab-button:hover { color: var(--ink); }
+        .tab-button.active {
+            color: var(--navy);
+            border-bottom-color: var(--red);
+        }
+        .tab-button.active .tab-index { color: var(--red); }
+
+        .tab-content { display: none; animation: fadeIn 0.35s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ================================================================
+           FRAMEWORK HEADER — like an article lede
+           ================================================================ */
+        .framework-card {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 28px;
+            padding: 0 0 28px;
+            margin-bottom: 36px;
+            border-bottom: 1px solid var(--hairline-soft);
+        }
+        .framework-roman {
+            font-family: var(--font-display);
+            font-style: italic;
+            font-weight: 400;
+            font-size: 3rem;
+            color: var(--red);
+            line-height: 1;
+            letter-spacing: -0.02em;
+            min-width: 80px;
+            padding-top: 4px;
+        }
+        .framework-text { min-width: 0; }
+        .framework-card h4 {
+            font-family: var(--font-display);
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--ink);
+            margin-bottom: 6px;
+            letter-spacing: -0.01em;
+        }
+        .framework-card p {
+            color: var(--ink-muted);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            max-width: 70ch;
+        }
+
+        /* ================================================================
+           INPUT GRID — like a form in an old reference book
+           ================================================================ */
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0;
+            border-top: 1px solid var(--hairline-soft);
+        }
+        .input-group {
+            position: relative;
+            padding: 22px 28px 22px 0;
+            border-bottom: 1px solid var(--hairline-soft);
+        }
+        .input-group:nth-child(odd) {
+            padding-right: 28px;
+            border-right: 1px solid var(--hairline-soft);
+        }
+        .input-group:nth-child(even) { padding-left: 28px; }
+        /* Fields that fill the whole row */
+        .input-grid.single-col {
+            grid-template-columns: 1fr;
+        }
+        .input-grid.single-col .input-group {
+            padding-left: 0;
+            padding-right: 0;
+            border-right: none;
+        }
+        .input-group label {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            margin-bottom: 12px;
+            font-weight: 600;
+            color: var(--ink);
+            font-size: 1rem;
+            font-family: var(--font-body);
+        }
+        .input-group label .label-icon {
+            width: 24px; height: 24px;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-weight: 900;
+            font-size: 0.95rem;
+            color: var(--paper);
+            background: var(--navy);
+            border-radius: var(--r-xs);
+            letter-spacing: 0;
+        }
+        .input-group label .label-text {
+            flex: 1;
+        }
+        .input-group textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid var(--hairline);
+            border-radius: var(--r-sm);
+            font-size: 0.95rem;
+            font-family: var(--font-body);
+            min-height: 88px;
+            resize: vertical;
+            background: var(--paper);
+            color: var(--ink);
+            line-height: 1.55;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        [data-theme="dark"] .input-group textarea {
+            background: var(--paper-deep);
+        }
+        .input-group textarea:focus {
+            outline: none;
+            border-color: var(--navy);
+            box-shadow: 0 0 0 3px var(--navy-soft);
+        }
+        .input-group textarea::placeholder {
+            color: var(--ink-faint);
+            font-style: italic;
+        }
+        .input-group small {
+            display: block;
+            margin-top: 8px;
+            color: var(--ink-faint);
+            font-size: 0.82rem;
+            font-style: italic;
+            line-height: 1.5;
+        }
+
+        /* ================================================================
+           OUTPUT SECTION — compiled manuscript
+           ================================================================ */
+        .output-wrapper {
+            margin-top: 56px;
+            padding-top: 32px;
+            border-top: 3px double var(--ink);
+        }
+        .output-section {
+            background: var(--paper-deep);
+            padding: 28px;
+            border-radius: var(--r-sm);
+            border: 1px solid var(--hairline);
+            position: relative;
+        }
+        .output-section::before {
+            content: '';
+            position: absolute;
+            top: 8px; left: 8px; right: 8px; bottom: 8px;
+            border: 1px solid var(--hairline-soft);
+            pointer-events: none;
+            border-radius: var(--r-xs);
+        }
+        .output-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 18px;
+            gap: 16px;
+            flex-wrap: wrap;
+            position: relative;
+        }
+        .output-header h3 {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--ink);
+            letter-spacing: -0.01em;
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+        }
+        .output-header h3::before {
+            content: '§';
+            color: var(--red);
+            font-size: 1.4rem;
+            font-style: italic;
+        }
+        .output-stats {
+            display: flex;
+            gap: 18px;
+            font-family: var(--font-mono);
+            font-size: 0.76rem;
+            color: var(--ink-faint);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .output-stats span { display: inline-flex; gap: 5px; align-items: baseline; }
+        .output-stats .stat-value {
+            color: var(--navy);
+            font-weight: 700;
+            font-size: 0.88rem;
+        }
+        .output-text {
+            padding: 22px 24px;
+            background: var(--paper);
+            border-radius: var(--r-xs);
+            min-height: 180px;
+            font-family: var(--font-mono);
+            font-size: 0.88rem;
+            line-height: 1.85;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border: 1px solid var(--hairline-soft);
+            color: var(--ink);
+            position: relative;
+        }
+        .output-text.empty {
+            color: var(--ink-faint);
+            font-style: italic;
+            font-family: var(--font-display);
+            font-size: 0.95rem;
+        }
+
+        /* ================================================================
+           BUTTON ROW
+           ================================================================ */
+        .button-group {
+            margin-top: 24px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 22px;
+            border: 1px solid transparent;
+            border-radius: var(--r-sm);
+            font-family: var(--font-body);
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.3px;
+        }
+        .btn-primary {
+            background: var(--navy);
+            color: var(--paper);
+            border-color: var(--navy);
+        }
+        .btn-primary:hover {
+            background: var(--navy-deep);
+            border-color: var(--navy-deep);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(26, 82, 118, 0.2);
+        }
+        .btn-success {
+            background: transparent;
+            color: var(--navy);
+            border-color: var(--navy);
+        }
+        .btn-success:hover {
+            background: var(--navy-soft);
+        }
+        .btn-secondary {
+            background: transparent;
+            color: var(--ink-muted);
+            border-color: var(--hairline);
+        }
+        .btn-secondary:hover {
+            color: var(--red);
+            border-color: var(--red);
+            background: var(--red-soft);
+        }
+        .btn-icon {
+            font-family: var(--font-mono);
+            font-size: 0.92em;
+            opacity: 0.75;
+        }
+
+        /* ================================================================
+           NOTIFICATIONS
+           ================================================================ */
+        .notification {
+            position: fixed;
+            top: 72px;
+            right: 24px;
+            padding: 12px 18px;
+            border-radius: var(--r-sm);
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 0.88rem;
+            opacity: 0;
+            transform: translateX(120%);
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10000;
+            border: 1px solid;
+        }
+        .notification.show { opacity: 1; transform: translateX(0); }
+        .notification-success {
+            background: var(--paper);
+            color: var(--success);
+            border-color: var(--success);
+        }
+        .notification-warning {
+            background: var(--paper);
+            color: var(--warning);
+            border-color: var(--warning);
+        }
+
+        /* ================================================================
+           COLOPHON / FOOTER
+           ================================================================ */
+        .footer {
+            margin-top: 64px;
+            padding-top: 24px;
+            border-top: 1px solid var(--hairline);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--ink-faint);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .footer-links { display: flex; gap: 20px; }
+        .footer-links a {
+            color: var(--ink-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .footer-links a:hover { color: var(--red); }
+
+        /* ================================================================
+           MOBILE
+           ================================================================ */
+        @media (max-width: 860px) {
+            .container { padding: 28px 20px 60px; }
+            .masthead {
+                grid-template-columns: 1fr;
+                gap: 20px;
+                padding: 24px 0 20px;
+                margin-bottom: 32px;
+            }
+            .masthead-right { align-items: flex-start; }
+            .dateline { text-align: left; }
+            .tabs-wrapper::before { display: none; }
+            .tab-button { margin-right: 20px; padding: 12px 0; font-size: 0.88rem; }
+            .framework-card {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            .framework-roman { font-size: 2.2rem; }
+            .framework-card h4 { font-size: 1.35rem; }
+            .input-grid {
+                grid-template-columns: 1fr;
+            }
+            .input-group,
+            .input-group:nth-child(odd) {
+                padding: 18px 0;
+                border-right: none;
+            }
+            .input-group:nth-child(even) { padding-left: 0; }
+            .output-wrapper { margin-top: 40px; padding-top: 24px; }
+            .output-section { padding: 20px; }
+            .output-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .button-group .btn { flex: 1 1 calc(50% - 5px); }
+            .footer {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+            .notification {
+                top: 64px;
+                right: 12px;
+                left: 12px;
+            }
+        }
+        @media (max-width: 480px) {
+            .masthead h1 { font-size: 1.9rem; }
+            .button-group .btn { flex: 1 1 100%; }
+        }
+
+        /* ================================================================
+           PRINT (editorial touch — why not)
+           ================================================================ */
+        @media print {
+            body { background: #fff; }
+            .ax-bridge-nav, .button-group, .theme-toggle { display: none; }
+            .container { max-width: 100%; padding: 0; }
+            .tab-content:not(.active) { display: block; page-break-before: always; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="ax-bridge-nav" id="ax-bridge-nav">
+    <div class="ax-bridge-inner">
+        <a href="../index.html" class="ax-bridge-brand" title="ハブに戻る">
+            <div class="ax-bridge-mark">📖</div>
+            <div class="ax-bridge-brand-text">
+                <span class="ax-bridge-brand-name">Prompt Book</span>
+                <span class="ax-bridge-brand-sub">JKE AX Bridge</span>
+            </div>
+            <span class="ax-bridge-arrow">›</span>
+            <span class="ax-bridge-tool">GPT‑5.6 テンプレート生成</span>
+        </a>
+        <div class="ax-bridge-meta">
+            <span class="ax-chip tier2">頼む · Delegate</span>
+            <span class="ax-chip approved">承認済</span>
+            <span class="ax-bench-note">GPT‑5.6 · GHES / CRISPE / CAPE / 5W1H / AIDA</span>
+            <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme" title="Light / Dark">◐</button>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+
+    <!-- ===== MASTHEAD ===== -->
+    <header class="masthead">
+        <div class="masthead-left">
+            <div class="kicker">Reference · 構造化プロンプト編</div>
+            <h1 data-translate-key="header_title">GPT‑5.6 Prompt Template Generator</h1>
+            <p class="deck" data-translate-key="header_desc">Compose precise prompts across seven frameworks, six languages, and a GPT‑5.6 verification contract.</p>
+        </div>
+        <div class="masthead-right">
+            <div class="dateline" id="dateline">— · —</div>
+            <select class="language-select" id="languageSelector" onchange="selectLanguage(this.value)">
+                <option value="ja">🇯🇵 日本語</option>
+                <option value="zh">🇨🇳 中文</option>
+                <option value="en">🇺🇸 English</option>
+                <option value="ko">🇰🇷 한국어</option>
+                <option value="fr">🇫🇷 Français</option>
+                <option value="es">🇪🇸 Español</option>
+            </select>
+        </div>
+    </header>
+
+    <!-- ===== TABS ===== -->
+    <div class="tabs-wrapper">
+        <div class="tabs" role="tablist">
+            <button class="tab-button active" onclick="showTab('ghes', event)"><span class="tab-index">I.</span>GHES</button>
+            <button class="tab-button" onclick="showTab('crispe', event)"><span class="tab-index">II.</span>CRISPE</button>
+            <button class="tab-button" onclick="showTab('cape', event)"><span class="tab-index">III.</span>CAPE</button>
+            <button class="tab-button" onclick="showTab('prompt', event)"><span class="tab-index">IV.</span>PROMPT</button>
+            <button class="tab-button" onclick="showTab('5w1h', event)"><span class="tab-index">V.</span>5W1H</button>
+            <button class="tab-button" onclick="showTab('aida', event)"><span class="tab-index">VI.</span>AIDA</button>
+            <button class="tab-button" onclick="showTab('storytelling', event)"><span class="tab-index">VII.</span>Storytelling</button>
+        </div>
+    </div>
+
+    <!-- ===== GHES ===== -->
+    <div id="ghes" class="tab-content active">
+        <div class="framework-card">
+            <div class="framework-roman">I.</div>
+            <div class="framework-text">
+                <h4 data-translate-key="ghes_framework">GHES Framework</h4>
+                <p data-translate-key="ghes_desc">Goal → Hint → Example → Style. 明確な結果を導く四段構成。</p>
+            </div>
+        </div>
+        <div class="input-grid">
+            <div class="input-group">
+                <label><span class="label-icon">G</span><span class="label-text" data-translate-key="ghes_goal_label">Goal</span></label>
+                <textarea id="ghes-goal" data-translate-placeholder-key="ghes_goal_placeholder" placeholder="達成したい目標を入力してください"></textarea>
+                <small data-translate-key="ghes_goal_desc">AIが実行すべき主な目的を明確に記述してください</small>
+            </div>
+            <div class="input-group">
+                <label><span class="label-icon">H</span><span class="label-text" data-translate-key="ghes_hint_label">Hint</span></label>
+                <textarea id="ghes-hint" data-translate-placeholder-key="ghes_hint_placeholder" placeholder="制約事項や条件を入力してください"></textarea>
+                <small data-translate-key="ghes_hint_desc">特別な条件や制約事項を明記してください</small>
+            </div>
+            <div class="input-group">
+                <label><span class="label-icon">E</span><span class="label-text" data-translate-key="ghes_example_label">Example</span></label>
+                <textarea id="ghes-example" data-translate-placeholder-key="ghes_example_placeholder" placeholder="参考にする例を入力してください"></textarea>
+                <small data-translate-key="ghes_example_desc">希望する結果の例を提供してください</small>
+            </div>
+            <div class="input-group">
+                <label><span class="label-icon">S</span><span class="label-text" data-translate-key="ghes_style_label">Style</span></label>
+                <textarea id="ghes-style" data-translate-placeholder-key="ghes_style_placeholder" placeholder="希望するスタイルを入力してください"></textarea>
+                <small data-translate-key="ghes_style_desc">トーン、形式、スタイルなどを指定してください</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CRISPE ===== -->
+    <div id="crispe" class="tab-content">
+        <div class="framework-card">
+            <div class="framework-roman">II.</div>
+            <div class="framework-text">
+                <h4 data-translate-key="crispe_framework">CRISPE Framework</h4>
+                <p data-translate-key="crispe_desc">Context · Role · Input · Steps · Personality · Example による体系的な設計。</p>
+            </div>
+        </div>
+        <div class="input-grid">
+            <div class="input-group"><label><span class="label-icon">C</span><span class="label-text" data-translate-key="crispe_context_label">Context</span></label><textarea id="crispe-context" data-translate-placeholder-key="crispe_context_placeholder" placeholder="背景情報を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">R</span><span class="label-text" data-translate-key="crispe_role_label">Role</span></label><textarea id="crispe-role" data-translate-placeholder-key="crispe_role_placeholder" placeholder="AIの役割を定義してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">I</span><span class="label-text" data-translate-key="crispe_input_label">Input</span></label><textarea id="crispe-input" data-translate-placeholder-key="crispe_input_placeholder" placeholder="提供する情報を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">S</span><span class="label-text" data-translate-key="crispe_steps_label">Steps</span></label><textarea id="crispe-steps" data-translate-placeholder-key="crispe_steps_placeholder" placeholder="実行段階を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">P</span><span class="label-text" data-translate-key="crispe_personality_label">Personality</span></label><textarea id="crispe-personality" data-translate-placeholder-key="crispe_personality_placeholder" placeholder="AIの性格や口調を定義してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">E</span><span class="label-text" data-translate-key="crispe_example_label">Example</span></label><textarea id="crispe-example" data-translate-placeholder-key="crispe_example_placeholder" placeholder="参考例を入力してください"></textarea></div>
+        </div>
+    </div>
+
+    <!-- ===== CAPE ===== -->
+    <div id="cape" class="tab-content">
+        <div class="framework-card">
+            <div class="framework-roman">III.</div>
+            <div class="framework-text">
+                <h4 data-translate-key="cape_framework">CAPE Framework</h4>
+                <p data-translate-key="cape_desc">Context · Action · Purpose · Expectation 迅速な下書き設計のための四段。</p>
+            </div>
+        </div>
+        <div class="input-grid">
+            <div class="input-group"><label><span class="label-icon">C</span><span class="label-text" data-translate-key="cape_context_label">Context</span></label><textarea id="cape-context" data-translate-placeholder-key="cape_context_placeholder" placeholder="状況や背景を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">A</span><span class="label-text" data-translate-key="cape_action_label">Action</span></label><textarea id="cape-action" data-translate-placeholder-key="cape_action_placeholder" placeholder="実行する行動を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">P</span><span class="label-text" data-translate-key="cape_purpose_label">Purpose</span></label><textarea id="cape-purpose" data-translate-placeholder-key="cape_purpose_placeholder" placeholder="目的を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">E</span><span class="label-text" data-translate-key="cape_expectation_label">Expectation</span></label><textarea id="cape-expectation" data-translate-placeholder-key="cape_expectation_placeholder" placeholder="期待する結果を入力してください"></textarea></div>
+        </div>
+    </div>
+
+    <!-- ===== PROMPT ===== -->
+    <div id="prompt" class="tab-content">
+        <div class="framework-card">
+            <div class="framework-roman">IV.</div>
+            <div class="framework-text">
+                <h4 data-translate-key="prompt_framework">PROMPT Framework</h4>
+                <p data-translate-key="prompt_desc">Purpose · Role · Output · Mode · Persona · Tone 詳細制御型。</p>
+            </div>
+        </div>
+        <div class="input-grid">
+            <div class="input-group"><label><span class="label-icon">P</span><span class="label-text" data-translate-key="prompt_purpose_label">Purpose</span></label><textarea id="prompt-purpose" data-translate-placeholder-key="prompt_purpose_placeholder" placeholder="目的を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">R</span><span class="label-text" data-translate-key="prompt_role_label">Role</span></label><textarea id="prompt-role" data-translate-placeholder-key="prompt_role_placeholder" placeholder="役割を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">O</span><span class="label-text" data-translate-key="prompt_output_label">Output</span></label><textarea id="prompt-output" data-translate-placeholder-key="prompt_output_placeholder" placeholder="希望する出力形式を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">M</span><span class="label-text" data-translate-key="prompt_mode_label">Mode</span></label><textarea id="prompt-mode" data-translate-placeholder-key="prompt_mode_placeholder" placeholder="作業モードを入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">P</span><span class="label-text" data-translate-key="prompt_persona_label">Persona</span></label><textarea id="prompt-persona" data-translate-placeholder-key="prompt_persona_placeholder" placeholder="AIのペルソナを入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">T</span><span class="label-text" data-translate-key="prompt_tone_label">Tone</span></label><textarea id="prompt-tone" data-translate-placeholder-key="prompt_tone_placeholder" placeholder="口調やトーンを入力してください"></textarea></div>
+        </div>
+    </div>
+
+    <!-- ===== 5W1H ===== -->
+    <div id="5w1h" class="tab-content">
+        <div class="framework-card">
+            <div class="framework-roman">V.</div>
+            <div class="framework-text">
+                <h4 data-translate-key="5w1h_framework">5W1H Framework</h4>
+                <p data-translate-key="5w1h_desc">Who · What · When · Where · Why · How 古典的な分析フレーム。</p>
+            </div>
+        </div>
+        <div class="input-grid">
+            <div class="input-group"><label><span class="label-icon">W</span><span class="label-text" data-translate-key="5w1h_who_label">Who</span></label><textarea id="w1h-who" data-translate-placeholder-key="5w1h_who_placeholder" placeholder="主体や対象を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">W</span><span class="label-text" data-translate-key="5w1h_what_label">What</span></label><textarea id="w1h-what" data-translate-placeholder-key="5w1h_what_placeholder" placeholder="内容や主題を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">W</span><span class="label-text" data-translate-key="5w1h_when_label">When</span></label><textarea id="w1h-when" data-translate-placeholder-key="5w1h_when_placeholder" placeholder="時間や時期を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">W</span><span class="label-text" data-translate-key="5w1h_where_label">Where</span></label><textarea id="w1h-where" data-translate-placeholder-key="5w1h_where_placeholder" placeholder="場所や環境を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">W</span><span class="label-text" data-translate-key="5w1h_why_label">Why</span></label><textarea id="w1h-why" data-translate-placeholder-key="5w1h_why_placeholder" placeholder="理由や目的を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">H</span><span class="label-text" data-translate-key="5w1h_how_label">How</span></label><textarea id="w1h-how" data-translate-placeholder-key="5w1h_how_placeholder" placeholder="方法や過程を入力してください"></textarea></div>
+        </div>
+    </div>
+
+    <!-- ===== AIDA ===== -->
+    <div id="aida" class="tab-content">
+        <div class="framework-card">
+            <div class="framework-roman">VI.</div>
+            <div class="framework-text">
+                <h4 data-translate-key="aida_framework">AIDA Framework</h4>
+                <p data-translate-key="aida_desc">Attention · Interest · Desire · Action 説得・マーケティング型。</p>
+            </div>
+        </div>
+        <div class="input-grid">
+            <div class="input-group"><label><span class="label-icon">A</span><span class="label-text" data-translate-key="aida_attention_label">Attention</span></label><textarea id="aida-attention" data-translate-placeholder-key="aida_attention_placeholder" placeholder="注目を引く内容を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">I</span><span class="label-text" data-translate-key="aida_interest_label">Interest</span></label><textarea id="aida-interest" data-translate-placeholder-key="aida_interest_placeholder" placeholder="関心を引く内容を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">D</span><span class="label-text" data-translate-key="aida_desire_label">Desire</span></label><textarea id="aida-desire" data-translate-placeholder-key="aida_desire_placeholder" placeholder="欲求を刺激する内容を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">A</span><span class="label-text" data-translate-key="aida_action_label">Action</span></label><textarea id="aida-action" data-translate-placeholder-key="aida_action_placeholder" placeholder="行動を促す内容を入力してください"></textarea></div>
+        </div>
+    </div>
+
+    <!-- ===== STORYTELLING ===== -->
+    <div id="storytelling" class="tab-content">
+        <div class="framework-card">
+            <div class="framework-roman">VII.</div>
+            <div class="framework-text">
+                <h4 data-translate-key="storytelling_framework">Storytelling / 三幕構成</h4>
+                <p data-translate-key="storytelling_desc">Beginning · Middle · End 物語展開型。</p>
+            </div>
+        </div>
+        <div class="input-grid single-col">
+            <div class="input-group"><label><span class="label-icon">B</span><span class="label-text" data-translate-key="storytelling_beginning_label">Beginning</span></label><textarea id="story-beginning" data-translate-placeholder-key="storytelling_beginning_placeholder" placeholder="物語の始まりの部分を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">M</span><span class="label-text" data-translate-key="storytelling_middle_label">Middle</span></label><textarea id="story-middle" data-translate-placeholder-key="storytelling_middle_placeholder" placeholder="物語の展開部分を入力してください"></textarea></div>
+            <div class="input-group"><label><span class="label-icon">E</span><span class="label-text" data-translate-key="storytelling_end_label">End</span></label><textarea id="story-end" data-translate-placeholder-key="storytelling_end_placeholder" placeholder="物語の結末部分を入力してください"></textarea></div>
+        </div>
+    </div>
+
+    <!-- ===== OUTPUT ===== -->
+    <div class="output-wrapper">
+        <div class="output-section">
+            <div class="output-header">
+                <h3><span data-translate-key="output_title">Compiled Prompt</span></h3>
+                <div class="output-stats">
+                    <span><span data-translate-key="stat_chars">chars</span>&nbsp;<span class="stat-value" id="charCount">0</span></span>
+                    <span><span data-translate-key="stat_words">words</span>&nbsp;<span class="stat-value" id="wordCount">0</span></span>
+                </div>
+            </div>
+            <div id="output" class="output-text empty" data-translate-key="output_placeholder_initial">生成されたプロンプトはここに表示されます...</div>
+        </div>
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="generatePrompt()"><span class="btn-icon">→</span><span data-translate-key="button_generate">Generate</span></button>
+            <button class="btn btn-success" onclick="copyToClipboard()"><span class="btn-icon">⧉</span><span data-translate-key="button_copy">Copy</span></button>
+            <button class="btn btn-secondary" onclick="clearFields()"><span class="btn-icon">×</span><span data-translate-key="button_clear">Clear</span></button>
+        </div>
+    </div>
+
+    <!-- ===== COLOPHON ===== -->
+    <div class="footer">
+        <span data-translate-key="footer_text">Prompt Template Generator · v4.0 · GPT‑5.6 · JKE AX Bridge</span>
+        <div class="footer-links">
+            <a href="#" data-translate-key="footer_help">Help</a>
+            <a href="#" data-translate-key="footer_feedback">Feedback</a>
+        </div>
+    </div>
+</div>
+
+<div class="notification notification-success" id="copyNotification"><span>✓</span><span data-translate-key="copy_notification">クリップボードにコピーされました！</span></div>
+<div class="notification notification-warning" id="warningNotification"><span>!</span><span data-translate-key="copy_alert">コピーするプロンプトがありません</span></div>
+
+<script src="../runtime-config.js"></script>
+<script src="vendor/runtime.js"></script>
+<script>
+    // ========================================================
+    // THEME
+    // ========================================================
+    function initTheme() {
+        const saved = localStorage.getItem('jke-prompt-theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = saved || (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+        updateThemeToggle(theme);
+    }
+    function updateThemeToggle(theme) {
+        const btn = document.getElementById('themeToggle');
+        if (btn) btn.textContent = theme === 'dark' ? '☀' : '◐';
+    }
+    function toggleTheme() {
+        const current = document.documentElement.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('jke-prompt-theme', next);
+        updateThemeToggle(next);
+    }
+
+    // ========================================================
+    // DATELINE
+    // ========================================================
+    function updateDateline() {
+        const now = new Date();
+        const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+        const d = String(now.getDate()).padStart(2,'0');
+        const m = months[now.getMonth()];
+        const y = now.getFullYear();
+        const vol = 'Vol. III';
+        const el = document.getElementById('dateline');
+        if (el) el.textContent = `${vol} · ${d} ${m} ${y}`;
+    }
+
+    // ========================================================
+    // STATE + TRANSLATIONS (unchanged semantics)
+    // ========================================================
+    let currentTab = 'ghes';
+    let currentLang = 'ja';
+    const promptLabels = {
+        ja: { goal: "Goal (目的)", hint: "Hint (条件)", example: "Example (例)", style: "Style (スタイル)", context: "Context (文脈)", role: "Role (役割)", input: "Input (入力)", steps: "Steps (段階)", personality: "Personality (性格)", action: "Action (行動)", purpose: "Purpose (目的)", expectation: "Expectation (期待)", output: "Output (出力)", mode: "Mode (モード)", persona: "Persona (ペルソナ)", tone: "Tone (トーン)", who: "Who (誰が)", what: "What (何を)", when: "When (いつ)", where: "Where (どこで)", why: "Why (なぜ)", how: "How (どのように)", attention: "Attention (注目)", interest: "Interest (関心)", desire: "Desire (欲求)", beginning: "Beginning (始まり)", middle: "Middle (中間)", end: "End (終わり)" },
+        zh: { goal: "Goal (目标)", hint: "Hint (提示)", example: "Example (示例)", style: "Style (风格)", context: "Context (背景)", role: "Role (角色)", input: "Input (输入)", steps: "Steps (步骤)", personality: "Personality (个性)", action: "Action (行动)", purpose: "Purpose (目的)", expectation: "Expectation (预期)", output: "Output (输出)", mode: "Mode (模式)", persona: "Persona (人设)", tone: "Tone (语气)", who: "Who (谁)", what: "What (什么)", when: "When (何时)", where: "Where (何地)", why: "Why (为什么)", how: "How (如何)", attention: "Attention (注意)", interest: "Interest (兴趣)", desire: "Desire (欲望)", beginning: "Beginning (开头)", middle: "Middle (中间)", end: "End (结尾)" },
+        en: { goal: "Goal", hint: "Hint", example: "Example", style: "Style", context: "Context", role: "Role", input: "Input", steps: "Steps", personality: "Personality", action: "Action", purpose: "Purpose", expectation: "Expectation", output: "Output", mode: "Mode", persona: "Persona", tone: "Tone", who: "Who", what: "What", when: "When", where: "Where", why: "Why", how: "How", attention: "Attention", interest: "Interest", desire: "Desire", beginning: "Beginning", middle: "Middle", end: "End" },
+        ko: { goal: "Goal (목표)", hint: "Hint (조건)", example: "Example (예시)", style: "Style (스타일)", context: "Context (맥락)", role: "Role (역할)", input: "Input (입력)", steps: "Steps (단계)", personality: "Personality (성격)", action: "Action (행동)", purpose: "Purpose (목적)", expectation: "Expectation (기대)", output: "Output (출력)", mode: "Mode (모드)", persona: "Persona (페르소나)", tone: "Tone (어조)", who: "Who (누가)", what: "What (무엇을)", when: "When (언제)", where: "Where (어디서)", why: "Why (왜)", how: "How (어떻게)", attention: "Attention (주목)", interest: "Interest (관심)", desire: "Desire (욕구)", beginning: "Beginning (시작)", middle: "Middle (중간)", end: "End (끝)" },
+        es: { goal: "Goal (Objetivo)", hint: "Hint (Pista)", example: "Example (Ejemplo)", style: "Style (Estilo)", context: "Context (Contexto)", role: "Role (Rol)", input: "Input (Entrada)", steps: "Steps (Pasos)", personality: "Personality (Personalidad)", action: "Action (Acción)", purpose: "Purpose (Propósito)", expectation: "Expectation (Expectativa)", output: "Output (Salida)", mode: "Mode (Modo)", persona: "Persona", tone: "Tone (Tono)", who: "Who (Quién)", what: "What (Qué)", when: "When (Cuándo)", where: "Where (Dónde)", why: "Why (Por qué)", how: "How (Cómo)", attention: "Attention (Atención)", interest: "Interest (Interés)", desire: "Desire (Deseo)", beginning: "Beginning (Inicio)", middle: "Middle (Nudo)", end: "End (Desenlace)" },
+        fr: { goal: "Goal (Objectif)", hint: "Hint (Indice)", example: "Example (Exemple)", style: "Style", context: "Context (Contexte)", role: "Role (Rôle)", input: "Input (Entrée)", steps: "Steps (Étapes)", personality: "Personality (Personnalité)", action: "Action", purpose: "Purpose (But)", expectation: "Expectation (Attente)", output: "Output (Sortie)", mode: "Mode", persona: "Persona", tone: "Tone (Ton)", who: "Who (Qui)", what: "What (Quoi)", when: "When (Quand)", where: "Where (Où)", why: "Why (Pourquoi)", how: "How (Comment)", attention: "Attention", interest: "Interest (Intérêt)", desire: "Desire (Désir)", beginning: "Beginning (Début)", middle: "Middle (Milieu)", end: "End (Fin)" }
+    };
+
+    const translations = {
+        ja: {
+            header_title: "GPT‑5.6 AIプロンプトテンプレートジェネレーター",
+            header_desc: "七つのフレームワークと六言語に、GPT‑5.6向け検証契約を加えた構造化プロンプトツール。",
+            ghes_framework: "GHESフレームワーク",
+            ghes_desc: "Goal → Hint → Example → Style で構成された明確なプロンプト作成法。",
+            ghes_goal_label: "Goal (目的)", ghes_goal_placeholder: "達成したい目標を入力してください", ghes_goal_desc: "AIが実行すべき主な目的を明確に記述してください",
+            ghes_hint_label: "Hint (条件)", ghes_hint_placeholder: "制約事項や条件を入力してください", ghes_hint_desc: "特別な条件や制約事項を明記してください",
+            ghes_example_label: "Example (例)", ghes_example_placeholder: "参考にする例を入力してください", ghes_example_desc: "希望する結果の例を提供してください",
+            ghes_style_label: "Style (スタイル)", ghes_style_placeholder: "希望するスタイルを入力してください", ghes_style_desc: "トーン、形式、スタイルなどを指定してください",
+            crispe_framework: "CRISPEフレームワーク", crispe_desc: "Context · Role · Input · Steps · Personality · Example による体系的な設計。",
+            crispe_context_label: "Context (文脈)", crispe_context_placeholder: "背景情報を入力してください",
+            crispe_role_label: "Role (役割)", crispe_role_placeholder: "AIの役割を定義してください",
+            crispe_input_label: "Input (入力)", crispe_input_placeholder: "提供する情報を入力してください",
+            crispe_steps_label: "Steps (段階)", crispe_steps_placeholder: "実行段階を入力してください",
+            crispe_personality_label: "Personality (性格)", crispe_personality_placeholder: "AIの性格や口調を定義してください",
+            crispe_example_label: "Example (例)", crispe_example_placeholder: "参考例を入力してください",
+            cape_framework: "CAPEフレームワーク", cape_desc: "Context · Action · Purpose · Expectation 迅速な下書き設計のための四段。",
+            cape_context_label: "Context (背景)", cape_context_placeholder: "状況や背景を入力してください",
+            cape_action_label: "Action (行動)", cape_action_placeholder: "実行する行動を入力してください",
+            cape_purpose_label: "Purpose (目的)", cape_purpose_placeholder: "目的を入力してください",
+            cape_expectation_label: "Expectation (期待される結果)", cape_expectation_placeholder: "期待する結果を入力してください",
+            prompt_framework: "PROMPTフレームワーク", prompt_desc: "Purpose · Role · Output · Mode · Persona · Tone 詳細制御型。",
+            prompt_purpose_label: "Purpose (目的)", prompt_purpose_placeholder: "目的を入力してください",
+            prompt_role_label: "Role (役割)", prompt_role_placeholder: "役割を入力してください",
+            prompt_output_label: "Output (出力)", prompt_output_placeholder: "希望する出力形式を入力してください",
+            prompt_mode_label: "Mode (モード)", prompt_mode_placeholder: "作業モードを入力してください",
+            prompt_persona_label: "Persona (ペルソナ)", prompt_persona_placeholder: "AIのペルソナを入力してください",
+            prompt_tone_label: "Tone (トーン)", prompt_tone_placeholder: "口調やトーンを入力してください",
+            "5w1h_framework": "5W1Hフレームワーク", "5w1h_desc": "Who · What · When · Where · Why · How 古典的な分析フレーム。",
+            "5w1h_who_label": "Who (誰が)", "5w1h_who_placeholder": "主体や対象を入力してください",
+            "5w1h_what_label": "What (何を)", "5w1h_what_placeholder": "内容や主題を入力してください",
+            "5w1h_when_label": "When (いつ)", "5w1h_when_placeholder": "時間や時期を入力してください",
+            "5w1h_where_label": "Where (どこで)", "5w1h_where_placeholder": "場所や環境を入力してください",
+            "5w1h_why_label": "Why (なぜ)", "5w1h_why_placeholder": "理由や目的を入力してください",
+            "5w1h_how_label": "How (どのように)", "5w1h_how_placeholder": "方法や過程を入力してください",
+            aida_framework: "AIDAフレームワーク", aida_desc: "Attention · Interest · Desire · Action 説得・マーケティング型。",
+            aida_attention_label: "Attention (注目)", aida_attention_placeholder: "注目を引く内容を入力してください",
+            aida_interest_label: "Interest (関心)", aida_interest_placeholder: "関心を引く内容を入力してください",
+            aida_desire_label: "Desire (欲求)", aida_desire_placeholder: "欲求を刺激する内容を入力してください",
+            aida_action_label: "Action (行動)", aida_action_placeholder: "行動を促す内容を入力してください",
+            storytelling_framework: "ストーリーテリング / 三幕構成", storytelling_desc: "Beginning · Middle · End 物語展開型。",
+            storytelling_beginning_label: "Beginning (始まり)", storytelling_beginning_placeholder: "物語の始まりの部分を入力してください",
+            storytelling_middle_label: "Middle (中間)", storytelling_middle_placeholder: "物語の展開部分を入力してください",
+            storytelling_end_label: "End (終わり)", storytelling_end_placeholder: "物語の結末部分を入力してください",
+            output_title: "生成されたプロンプト", output_placeholder_initial: "生成されたプロンプトはここに表示されます...", output_placeholder_empty: "入力内容がありません。上のフィールドを入力してください。",
+            button_generate: "生成", button_copy: "コピー", button_clear: "クリア",
+            copy_notification: "クリップボードにコピーされました", copy_alert: "コピーするプロンプトがありません",
+            stat_chars: "字", stat_words: "語", footer_text: "Prompt Template Generator · v4.0 · GPT‑5.6 · JKE AX Bridge", footer_help: "ヘルプ", footer_feedback: "フィードバック"
+        },
+        zh: {
+            header_title: "GPT‑5.6 AI提示词模板生成器",
+            header_desc: "基于七种框架、六种语言与GPT‑5.6验证契约的结构化提示词工具。",
+            ghes_framework: "GHES框架", ghes_desc: "Goal → Hint → Example → Style 清晰提示词编写法。",
+            ghes_goal_label: "Goal (目标)", ghes_goal_placeholder: "输入你想要实现的目标", ghes_goal_desc: "清楚地描述AI要执行的主要目的",
+            ghes_hint_label: "Hint (提示)", ghes_hint_placeholder: "输入约束条件或条件", ghes_hint_desc: "明确指出特殊条件或约束",
+            ghes_example_label: "Example (示例)", ghes_example_placeholder: "输入一个参考示例", ghes_example_desc: "提供所需输出的示例",
+            ghes_style_label: "Style (风格)", ghes_style_placeholder: "输入所需的风格", ghes_style_desc: "指定语调、格式、风格等",
+            crispe_framework: "CRISPE框架", crispe_desc: "Context · Role · Input · Steps · Personality · Example 系统化提示词。",
+            crispe_context_label: "Context (背景)", crispe_context_placeholder: "输入背景信息",
+            crispe_role_label: "Role (角色)", crispe_role_placeholder: "定义AI的角色",
+            crispe_input_label: "Input (输入)", crispe_input_placeholder: "输入要提供的信息",
+            crispe_steps_label: "Steps (步骤)", crispe_steps_placeholder: "输入要执行的步骤",
+            crispe_personality_label: "Personality (个性)", crispe_personality_placeholder: "定义AI的个性或语气",
+            crispe_example_label: "Example (示例)", crispe_example_placeholder: "输入参考示例",
+            cape_framework: "CAPE框架", cape_desc: "Context · Action · Purpose · Expectation 快速草稿设计。",
+            cape_context_label: "Context (背景)", cape_context_placeholder: "输入情况或背景",
+            cape_action_label: "Action (行动)", cape_action_placeholder: "输入要执行的行动",
+            cape_purpose_label: "Purpose (目的)", cape_purpose_placeholder: "输入目的",
+            cape_expectation_label: "Expectation (预期结果)", cape_expectation_placeholder: "输入预期的结果",
+            prompt_framework: "PROMPT框架", prompt_desc: "Purpose · Role · Output · Mode · Persona · Tone 详细控制型。",
+            prompt_purpose_label: "Purpose (目的)", prompt_purpose_placeholder: "输入目的",
+            prompt_role_label: "Role (角色)", prompt_role_placeholder: "输入角色",
+            prompt_output_label: "Output (输出)", prompt_output_placeholder: "输入所需的输出格式",
+            prompt_mode_label: "Mode (模式)", prompt_mode_placeholder: "输入操作模式",
+            prompt_persona_label: "Persona (人设)", prompt_persona_placeholder: "输入AI的人设",
+            prompt_tone_label: "Tone (语气)", prompt_tone_placeholder: "输入语气",
+            "5w1h_framework": "5W1H框架", "5w1h_desc": "Who · What · When · Where · Why · How 经典分析框架。",
+            "5w1h_who_label": "Who (谁)", "5w1h_who_placeholder": "输入主体或对象",
+            "5w1h_what_label": "What (什么)", "5w1h_what_placeholder": "输入内容或主题",
+            "5w1h_when_label": "When (何时)", "5w1h_when_placeholder": "输入时间或时期",
+            "5w1h_where_label": "Where (何地)", "5w1h_where_placeholder": "输入地点或环境",
+            "5w1h_why_label": "Why (为什么)", "5w1h_why_placeholder": "输入原因或目的",
+            "5w1h_how_label": "How (如何)", "5w1h_how_placeholder": "输入方法或过程",
+            aida_framework: "AIDA框架", aida_desc: "Attention · Interest · Desire · Action 说服/营销型。",
+            aida_attention_label: "Attention (注意)", aida_attention_placeholder: "输入吸引注意力的内容",
+            aida_interest_label: "Interest (兴趣)", aida_interest_placeholder: "输入引起兴趣的内容",
+            aida_desire_label: "Desire (欲望)", aida_desire_placeholder: "输入激发欲望的内容",
+            aida_action_label: "Action (行动)", aida_action_placeholder: "输入引导行动的内容",
+            storytelling_framework: "故事叙述 / 三幕结构", storytelling_desc: "Beginning · Middle · End 叙事型。",
+            storytelling_beginning_label: "Beginning (开头)", storytelling_beginning_placeholder: "输入故事的开头部分",
+            storytelling_middle_label: "Middle (中间)", storytelling_middle_placeholder: "输入故事的中间部分",
+            storytelling_end_label: "End (结尾)", storytelling_end_placeholder: "输入故事的结尾部分",
+            output_title: "生成的提示词", output_placeholder_initial: "生成的提示词将显示在这里...", output_placeholder_empty: "未输入任何内容。请填写以上字段。",
+            button_generate: "生成", button_copy: "复制", button_clear: "清除",
+            copy_notification: "已复制到剪贴板", copy_alert: "没有可复制的提示词",
+            stat_chars: "字符", stat_words: "词", footer_text: "Prompt Template Generator · v4.0 · GPT‑5.6 · JKE AX Bridge", footer_help: "帮助", footer_feedback: "反馈"
+        },
+        en: {
+            header_title: "GPT‑5.6 Prompt Template Generator",
+            header_desc: "Compose precise prompts across seven frameworks, six languages, and a GPT‑5.6 verification contract.",
+            ghes_framework: "GHES Framework", ghes_desc: "A clear prompt writing method: Goal → Hint → Example → Style.",
+            ghes_goal_label: "Goal", ghes_goal_placeholder: "Enter the goal you want to achieve", ghes_goal_desc: "Clearly state the main objective",
+            ghes_hint_label: "Hint", ghes_hint_placeholder: "Enter constraints or conditions", ghes_hint_desc: "Specify special conditions",
+            ghes_example_label: "Example", ghes_example_placeholder: "Enter a reference example", ghes_example_desc: "Provide an example of desired output",
+            ghes_style_label: "Style", ghes_style_placeholder: "Enter the desired style", ghes_style_desc: "Specify tone, format, style",
+            crispe_framework: "CRISPE Framework", crispe_desc: "Systematic prompt: Context · Role · Input · Steps · Personality · Example.",
+            crispe_context_label: "Context", crispe_context_placeholder: "Enter background information",
+            crispe_role_label: "Role", crispe_role_placeholder: "Define the AI's role",
+            crispe_input_label: "Input", crispe_input_placeholder: "Enter information to provide",
+            crispe_steps_label: "Steps", crispe_steps_placeholder: "Enter steps to perform",
+            crispe_personality_label: "Personality", crispe_personality_placeholder: "Define AI's personality",
+            crispe_example_label: "Example", crispe_example_placeholder: "Enter a reference example",
+            cape_framework: "CAPE Framework", cape_desc: "Rapid design: Context · Action · Purpose · Expectation.",
+            cape_context_label: "Context", cape_context_placeholder: "Enter situation or background",
+            cape_action_label: "Action", cape_action_placeholder: "Enter action to perform",
+            cape_purpose_label: "Purpose", cape_purpose_placeholder: "Enter purpose",
+            cape_expectation_label: "Expectation", cape_expectation_placeholder: "Enter expected result",
+            prompt_framework: "PROMPT Framework", prompt_desc: "Detailed prompt: Purpose · Role · Output · Mode · Persona · Tone.",
+            prompt_purpose_label: "Purpose", prompt_purpose_placeholder: "Enter purpose",
+            prompt_role_label: "Role", prompt_role_placeholder: "Enter role",
+            prompt_output_label: "Output", prompt_output_placeholder: "Enter desired output format",
+            prompt_mode_label: "Mode", prompt_mode_placeholder: "Enter operation mode",
+            prompt_persona_label: "Persona", prompt_persona_placeholder: "Enter AI's persona",
+            prompt_tone_label: "Tone", prompt_tone_placeholder: "Enter tone of voice",
+            "5w1h_framework": "5W1H Framework", "5w1h_desc": "Analytical prompt: Who · What · When · Where · Why · How.",
+            "5w1h_who_label": "Who", "5w1h_who_placeholder": "Enter subject or target",
+            "5w1h_what_label": "What", "5w1h_what_placeholder": "Enter content or topic",
+            "5w1h_when_label": "When", "5w1h_when_placeholder": "Enter time or period",
+            "5w1h_where_label": "Where", "5w1h_where_placeholder": "Enter place or environment",
+            "5w1h_why_label": "Why", "5w1h_why_placeholder": "Enter reason or purpose",
+            "5w1h_how_label": "How", "5w1h_how_placeholder": "Enter method or process",
+            aida_framework: "AIDA Framework", aida_desc: "Marketing prompt: Attention · Interest · Desire · Action.",
+            aida_attention_label: "Attention", aida_attention_placeholder: "Enter content to grab attention",
+            aida_interest_label: "Interest", aida_interest_placeholder: "Enter content to generate interest",
+            aida_desire_label: "Desire", aida_desire_placeholder: "Enter content to stimulate desire",
+            aida_action_label: "Action", aida_action_placeholder: "Enter call to action",
+            storytelling_framework: "Storytelling / Three-Act", storytelling_desc: "Narrative prompt: Beginning · Middle · End.",
+            storytelling_beginning_label: "Beginning", storytelling_beginning_placeholder: "Enter the beginning of the story",
+            storytelling_middle_label: "Middle", storytelling_middle_placeholder: "Enter the middle of the story",
+            storytelling_end_label: "End", storytelling_end_placeholder: "Enter the ending of the story",
+            output_title: "Compiled Prompt", output_placeholder_initial: "Your compiled prompt will appear here...", output_placeholder_empty: "Nothing entered yet. Fill in the fields above.",
+            button_generate: "Generate", button_copy: "Copy", button_clear: "Clear",
+            copy_notification: "Copied to clipboard", copy_alert: "No prompt to copy",
+            stat_chars: "chars", stat_words: "words", footer_text: "Prompt Template Generator · v4.0 · GPT‑5.6 · JKE AX Bridge", footer_help: "Help", footer_feedback: "Feedback"
+        },
+        ko: {
+            header_title: "GPT‑5.6 AI 프롬프트 템플릿 생성기",
+            header_desc: "일곱 가지 정통 프레임워크와 여섯 언어로 구조화된 프롬프트를 편찬합니다.",
+            ghes_framework: "GHES 프레임워크", ghes_desc: "Goal → Hint → Example → Style 명확한 프롬프트 작성법.",
+            ghes_goal_label: "Goal (목표)", ghes_goal_placeholder: "달성하고 싶은 목표를 입력하세요", ghes_goal_desc: "AI가 수행해야 할 주요 목적을 명확히 기술하세요",
+            ghes_hint_label: "Hint (조건)", ghes_hint_placeholder: "제약 사항이나 조건을 입력하세요", ghes_hint_desc: "특별한 조건이나 제약 사항을 명시하세요",
+            ghes_example_label: "Example (예시)", ghes_example_placeholder: "참고할 예시를 입력하세요", ghes_example_desc: "원하는 결과의 예시를 제공하세요",
+            ghes_style_label: "Style (스타일)", ghes_style_placeholder: "원하는 스타일을 입력하세요", ghes_style_desc: "어조, 형식, 스타일 등을 지정하세요",
+            crispe_framework: "CRISPE 프레임워크", crispe_desc: "Context · Role · Input · Steps · Personality · Example 체계적 설계.",
+            crispe_context_label: "Context (맥락)", crispe_context_placeholder: "배경 정보를 입력하세요",
+            crispe_role_label: "Role (역할)", crispe_role_placeholder: "AI의 역할을 정의하세요",
+            crispe_input_label: "Input (입력)", crispe_input_placeholder: "제공할 정보를 입력하세요",
+            crispe_steps_label: "Steps (단계)", crispe_steps_placeholder: "수행할 단계를 입력하세요",
+            crispe_personality_label: "Personality (성격)", crispe_personality_placeholder: "AI의 성격이나 어조를 정의하세요",
+            crispe_example_label: "Example (예시)", crispe_example_placeholder: "참고 예시를 입력하세요",
+            cape_framework: "CAPE 프레임워크", cape_desc: "Context · Action · Purpose · Expectation 신속 초안 설계.",
+            cape_context_label: "Context (배경)", cape_context_placeholder: "상황이나 배경을 입력하세요",
+            cape_action_label: "Action (행동)", cape_action_placeholder: "수행할 행동을 입력하세요",
+            cape_purpose_label: "Purpose (목적)", cape_purpose_placeholder: "목적을 입력하세요",
+            cape_expectation_label: "Expectation (기대 결과)", cape_expectation_placeholder: "기대하는 결과를 입력하세요",
+            prompt_framework: "PROMPT 프레임워크", prompt_desc: "Purpose · Role · Output · Mode · Persona · Tone 상세 제어형.",
+            prompt_purpose_label: "Purpose (목적)", prompt_purpose_placeholder: "목적을 입력하세요",
+            prompt_role_label: "Role (역할)", prompt_role_placeholder: "역할을 입력하세요",
+            prompt_output_label: "Output (출력)", prompt_output_placeholder: "원하는 출력 형식을 입력하세요",
+            prompt_mode_label: "Mode (모드)", prompt_mode_placeholder: "작업 모드를 입력하세요",
+            prompt_persona_label: "Persona (페르소나)", prompt_persona_placeholder: "AI의 페르소나를 입력하세요",
+            prompt_tone_label: "Tone (어조)", prompt_tone_placeholder: "어조나 톤을 입력하세요",
+            "5w1h_framework": "5W1H 프레임워크", "5w1h_desc": "Who · What · When · Where · Why · How 고전적 분석 프레임.",
+            "5w1h_who_label": "Who (누가)", "5w1h_who_placeholder": "주체나 대상을 입력하세요",
+            "5w1h_what_label": "What (무엇을)", "5w1h_what_placeholder": "내용이나 주제를 입력하세요",
+            "5w1h_when_label": "When (언제)", "5w1h_when_placeholder": "시간이나 시기를 입력하세요",
+            "5w1h_where_label": "Where (어디서)", "5w1h_where_placeholder": "장소나 환경을 입력하세요",
+            "5w1h_why_label": "Why (왜)", "5w1h_why_placeholder": "이유나 목적을 입력하세요",
+            "5w1h_how_label": "How (어떻게)", "5w1h_how_placeholder": "방법이나 과정을 입력하세요",
+            aida_framework: "AIDA 프레임워크", aida_desc: "Attention · Interest · Desire · Action 설득·마케팅형.",
+            aida_attention_label: "Attention (주목)", aida_attention_placeholder: "주목을 끄는 내용을 입력하세요",
+            aida_interest_label: "Interest (관심)", aida_interest_placeholder: "관심을 불러일으키는 내용을 입력하세요",
+            aida_desire_label: "Desire (욕구)", aida_desire_placeholder: "욕구를 자극하는 내용을 입력하세요",
+            aida_action_label: "Action (행동)", aida_action_placeholder: "행동을 유도하는 내용을 입력하세요",
+            storytelling_framework: "스토리텔링 / 3막 구조", storytelling_desc: "Beginning · Middle · End 이야기 전개형.",
+            storytelling_beginning_label: "Beginning (시작)", storytelling_beginning_placeholder: "이야기의 시작 부분을 입력하세요",
+            storytelling_middle_label: "Middle (중간)", storytelling_middle_placeholder: "이야기의 전개 부분을 입력하세요",
+            storytelling_end_label: "End (끝)", storytelling_end_placeholder: "이야기의 결말 부분을 입력하세요",
+            output_title: "생성된 프롬프트", output_placeholder_initial: "생성된 프롬프트가 여기에 표시됩니다...", output_placeholder_empty: "입력된 내용이 없습니다. 위 필드를 입력하세요.",
+            button_generate: "생성", button_copy: "복사", button_clear: "지우기",
+            copy_notification: "클립보드에 복사되었습니다", copy_alert: "복사할 프롬프트가 없습니다",
+            stat_chars: "자", stat_words: "단어", footer_text: "Prompt Template Generator · v4.0 · GPT‑5.6 · JKE AX Bridge", footer_help: "도움말", footer_feedback: "피드백"
+        },
+        fr: {
+            header_title: "Générateur de modèles de prompts IA",
+            header_desc: "Composez des prompts précis et structurés à travers sept cadres canoniques et six langues de travail.",
+            ghes_framework: "Cadre GHES", ghes_desc: "Goal → Hint → Example → Style : méthode claire de rédaction.",
+            ghes_goal_label: "Goal (Objectif)", ghes_goal_placeholder: "Entrez l'objectif à atteindre", ghes_goal_desc: "Indiquez clairement l'objectif principal",
+            ghes_hint_label: "Hint (Indice)", ghes_hint_placeholder: "Entrez les contraintes ou conditions", ghes_hint_desc: "Spécifiez les conditions particulières",
+            ghes_example_label: "Example (Exemple)", ghes_example_placeholder: "Entrez un exemple de référence", ghes_example_desc: "Fournissez un exemple de sortie souhaitée",
+            ghes_style_label: "Style", ghes_style_placeholder: "Entrez le style souhaité", ghes_style_desc: "Spécifiez le ton, le format, le style",
+            crispe_framework: "Cadre CRISPE", crispe_desc: "Context · Role · Input · Steps · Personality · Example : conception systématique.",
+            crispe_context_label: "Context (Contexte)", crispe_context_placeholder: "Entrez les informations contextuelles",
+            crispe_role_label: "Role (Rôle)", crispe_role_placeholder: "Définissez le rôle de l'IA",
+            crispe_input_label: "Input (Entrée)", crispe_input_placeholder: "Entrez les informations à fournir",
+            crispe_steps_label: "Steps (Étapes)", crispe_steps_placeholder: "Entrez les étapes à exécuter",
+            crispe_personality_label: "Personality (Personnalité)", crispe_personality_placeholder: "Définissez la personnalité de l'IA",
+            crispe_example_label: "Example (Exemple)", crispe_example_placeholder: "Entrez un exemple de référence",
+            cape_framework: "Cadre CAPE", cape_desc: "Context · Action · Purpose · Expectation : conception rapide.",
+            cape_context_label: "Context (Contexte)", cape_context_placeholder: "Entrez la situation ou le contexte",
+            cape_action_label: "Action", cape_action_placeholder: "Entrez l'action à effectuer",
+            cape_purpose_label: "Purpose (But)", cape_purpose_placeholder: "Entrez le but",
+            cape_expectation_label: "Expectation (Résultat attendu)", cape_expectation_placeholder: "Entrez le résultat attendu",
+            prompt_framework: "Cadre PROMPT", prompt_desc: "Purpose · Role · Output · Mode · Persona · Tone : contrôle détaillé.",
+            prompt_purpose_label: "Purpose (But)", prompt_purpose_placeholder: "Entrez le but",
+            prompt_role_label: "Role (Rôle)", prompt_role_placeholder: "Entrez le rôle",
+            prompt_output_label: "Output (Sortie)", prompt_output_placeholder: "Entrez le format de sortie souhaité",
+            prompt_mode_label: "Mode", prompt_mode_placeholder: "Entrez le mode de fonctionnement",
+            prompt_persona_label: "Persona", prompt_persona_placeholder: "Entrez le persona de l'IA",
+            prompt_tone_label: "Tone (Ton)", prompt_tone_placeholder: "Entrez le ton",
+            "5w1h_framework": "Cadre 5W1H", "5w1h_desc": "Who · What · When · Where · Why · How : cadre analytique classique.",
+            "5w1h_who_label": "Who (Qui)", "5w1h_who_placeholder": "Entrez le sujet ou la cible",
+            "5w1h_what_label": "What (Quoi)", "5w1h_what_placeholder": "Entrez le contenu ou le sujet",
+            "5w1h_when_label": "When (Quand)", "5w1h_when_placeholder": "Entrez le moment ou la période",
+            "5w1h_where_label": "Where (Où)", "5w1h_where_placeholder": "Entrez le lieu ou l'environnement",
+            "5w1h_why_label": "Why (Pourquoi)", "5w1h_why_placeholder": "Entrez la raison ou le but",
+            "5w1h_how_label": "How (Comment)", "5w1h_how_placeholder": "Entrez la méthode ou le processus",
+            aida_framework: "Cadre AIDA", aida_desc: "Attention · Interest · Desire · Action : persuasion/marketing.",
+            aida_attention_label: "Attention", aida_attention_placeholder: "Entrez le contenu attirant l'attention",
+            aida_interest_label: "Interest (Intérêt)", aida_interest_placeholder: "Entrez le contenu suscitant l'intérêt",
+            aida_desire_label: "Desire (Désir)", aida_desire_placeholder: "Entrez le contenu stimulant le désir",
+            aida_action_label: "Action", aida_action_placeholder: "Entrez l'appel à l'action",
+            storytelling_framework: "Storytelling / Trois actes", storytelling_desc: "Beginning · Middle · End : structure narrative.",
+            storytelling_beginning_label: "Beginning (Début)", storytelling_beginning_placeholder: "Entrez le début de l'histoire",
+            storytelling_middle_label: "Middle (Milieu)", storytelling_middle_placeholder: "Entrez le milieu de l'histoire",
+            storytelling_end_label: "End (Fin)", storytelling_end_placeholder: "Entrez la fin de l'histoire",
+            output_title: "Prompt compilé", output_placeholder_initial: "Votre prompt compilé apparaîtra ici...", output_placeholder_empty: "Rien n'a été saisi. Remplissez les champs ci-dessus.",
+            button_generate: "Générer", button_copy: "Copier", button_clear: "Effacer",
+            copy_notification: "Copié dans le presse-papiers", copy_alert: "Aucun prompt à copier",
+            stat_chars: "car.", stat_words: "mots", footer_text: "Prompt Template Generator · v4.0 · GPT‑5.6 · JKE AX Bridge", footer_help: "Aide", footer_feedback: "Retour"
+        },
+        es: {
+            header_title: "Generador de plantillas de prompts de IA",
+            header_desc: "Componga prompts precisos y estructurados a través de siete marcos canónicos y seis idiomas de trabajo.",
+            ghes_framework: "Marco GHES", ghes_desc: "Goal → Hint → Example → Style: método claro de redacción.",
+            ghes_goal_label: "Goal (Objetivo)", ghes_goal_placeholder: "Ingrese el objetivo que desea lograr", ghes_goal_desc: "Describa claramente el objetivo principal",
+            ghes_hint_label: "Hint (Pista)", ghes_hint_placeholder: "Ingrese restricciones o condiciones", ghes_hint_desc: "Especifique condiciones especiales",
+            ghes_example_label: "Example (Ejemplo)", ghes_example_placeholder: "Ingrese un ejemplo de referencia", ghes_example_desc: "Proporcione un ejemplo del resultado deseado",
+            ghes_style_label: "Style (Estilo)", ghes_style_placeholder: "Ingrese el estilo deseado", ghes_style_desc: "Especifique tono, formato, estilo",
+            crispe_framework: "Marco CRISPE", crispe_desc: "Context · Role · Input · Steps · Personality · Example: diseño sistemático.",
+            crispe_context_label: "Context (Contexto)", crispe_context_placeholder: "Ingrese la información de fondo",
+            crispe_role_label: "Role (Rol)", crispe_role_placeholder: "Defina el rol de la IA",
+            crispe_input_label: "Input (Entrada)", crispe_input_placeholder: "Ingrese la información a proporcionar",
+            crispe_steps_label: "Steps (Pasos)", crispe_steps_placeholder: "Ingrese los pasos a realizar",
+            crispe_personality_label: "Personality (Personalidad)", crispe_personality_placeholder: "Defina la personalidad de la IA",
+            crispe_example_label: "Example (Ejemplo)", crispe_example_placeholder: "Ingrese un ejemplo de referencia",
+            cape_framework: "Marco CAPE", cape_desc: "Context · Action · Purpose · Expectation: diseño rápido.",
+            cape_context_label: "Context (Contexto)", cape_context_placeholder: "Ingrese la situación o contexto",
+            cape_action_label: "Action (Acción)", cape_action_placeholder: "Ingrese la acción a realizar",
+            cape_purpose_label: "Purpose (Propósito)", cape_purpose_placeholder: "Ingrese el propósito",
+            cape_expectation_label: "Expectation (Resultado esperado)", cape_expectation_placeholder: "Ingrese el resultado esperado",
+            prompt_framework: "Marco PROMPT", prompt_desc: "Purpose · Role · Output · Mode · Persona · Tone: control detallado.",
+            prompt_purpose_label: "Purpose (Propósito)", prompt_purpose_placeholder: "Ingrese el propósito",
+            prompt_role_label: "Role (Rol)", prompt_role_placeholder: "Ingrese el rol",
+            prompt_output_label: "Output (Salida)", prompt_output_placeholder: "Ingrese el formato de salida deseado",
+            prompt_mode_label: "Mode (Modo)", prompt_mode_placeholder: "Ingrese el modo de operación",
+            prompt_persona_label: "Persona", prompt_persona_placeholder: "Ingrese la persona de la IA",
+            prompt_tone_label: "Tone (Tono)", prompt_tone_placeholder: "Ingrese el tono de voz",
+            "5w1h_framework": "Marco 5W1H", "5w1h_desc": "Who · What · When · Where · Why · How: marco analítico clásico.",
+            "5w1h_who_label": "Who (Quién)", "5w1h_who_placeholder": "Ingrese el sujeto u objetivo",
+            "5w1h_what_label": "What (Qué)", "5w1h_what_placeholder": "Ingrese el contenido o tema",
+            "5w1h_when_label": "When (Cuándo)", "5w1h_when_placeholder": "Ingrese el tiempo o período",
+            "5w1h_where_label": "Where (Dónde)", "5w1h_where_placeholder": "Ingrese el lugar o entorno",
+            "5w1h_why_label": "Why (Por qué)", "5w1h_why_placeholder": "Ingrese la razón o propósito",
+            "5w1h_how_label": "How (Cómo)", "5w1h_how_placeholder": "Ingrese el método o proceso",
+            aida_framework: "Marco AIDA", aida_desc: "Attention · Interest · Desire · Action: persuasión/marketing.",
+            aida_attention_label: "Attention (Atención)", aida_attention_placeholder: "Ingrese contenido para llamar la atención",
+            aida_interest_label: "Interest (Interés)", aida_interest_placeholder: "Ingrese contenido para generar interés",
+            aida_desire_label: "Desire (Deseo)", aida_desire_placeholder: "Ingrese contenido para estimular el deseo",
+            aida_action_label: "Action (Acción)", aida_action_placeholder: "Ingrese la llamada a la acción",
+            storytelling_framework: "Storytelling / Tres actos", storytelling_desc: "Beginning · Middle · End: estructura narrativa.",
+            storytelling_beginning_label: "Beginning (Inicio)", storytelling_beginning_placeholder: "Ingrese el inicio de la historia",
+            storytelling_middle_label: "Middle (Nudo)", storytelling_middle_placeholder: "Ingrese el nudo de la historia",
+            storytelling_end_label: "End (Desenlace)", storytelling_end_placeholder: "Ingrese el desenlace de la historia",
+            output_title: "Prompt compilado", output_placeholder_initial: "Su prompt compilado aparecerá aquí...", output_placeholder_empty: "No se ha ingresado nada. Rellene los campos arriba.",
+            button_generate: "Generar", button_copy: "Copiar", button_clear: "Limpiar",
+            copy_notification: "Copiado al portapapeles", copy_alert: "No hay prompt para copiar",
+            stat_chars: "car.", stat_words: "palabras", footer_text: "Prompt Template Generator · v4.0 · GPT‑5.6 · JKE AX Bridge", footer_help: "Ayuda", footer_feedback: "Comentarios"
+        }
+    };
+
+    // ========================================================
+    // LANGUAGE / TRANSLATION
+    // ========================================================
+    function selectLanguage(lang) {
+        currentLang = lang;
+        document.documentElement.lang = lang;
+        applyTranslations();
+        generatePrompt();
+    }
+
+    function applyTranslations() {
+        document.querySelectorAll('[data-translate-key]').forEach(el => {
+            const key = el.dataset.translateKey;
+            if (translations[currentLang] && translations[currentLang][key]) el.textContent = translations[currentLang][key];
+        });
+        document.querySelectorAll('[data-translate-placeholder-key]').forEach(el => {
+            const key = el.dataset.translatePlaceholderKey;
+            if (translations[currentLang] && translations[currentLang][key]) el.placeholder = translations[currentLang][key];
+        });
+    }
+
+    // ========================================================
+    // TABS
+    // ========================================================
+    function showTab(tabName, evt) {
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.tab-button').forEach(button => button.classList.remove('active'));
+        document.getElementById(tabName).classList.add('active');
+        if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
+        currentTab = tabName;
+        generatePrompt();
+    }
+
+    // ========================================================
+    // GPT-5.6 REVIEW CONTRACT
+    // ========================================================
+    const gpt56Contract = {
+        ja: `[GPT‑5.6 検証契約]\n- 重要な主張は根拠・出典・前提を明示してください。\n- 事実、推論、不明点を分離してください。\n- 数値や計算は再確認し、検証方法を示してください。\n- 隠れた思考過程や内部scratchpadは出力せず、レビュー可能な簡潔な根拠のみ提示してください。\n- 最終回答の末尾に「未解決事項」と「次のアクション」を記載してください。`,
+        ko: `[GPT‑5.6 검증 계약]\n- 중요한 주장은 근거·출처·가정을 표시하세요.\n- 사실, 추론, 미확인 사항을 분리하세요.\n- 수치와 계산은 재검산하고 검증 방법을 제시하세요.\n- 숨은 사고과정이나 내부 scratchpad는 출력하지 말고, 검토 가능한 간결한 근거만 제시하세요.\n- 최종 답변 끝에 미해결 사항과 다음 조치를 작성하세요.`,
+        en: `[GPT‑5.6 VERIFICATION CONTRACT]\n- Cite evidence, sources, and assumptions for material claims.\n- Separate facts, inference, and unknowns.\n- Recheck important numbers and show a verification method.\n- Do not reveal hidden chain-of-thought or private scratchpads; provide concise, reviewable rationale only.\n- End with unresolved issues and next actions.`,
+        zh: `[GPT‑5.6 验证契约]\n- 为重要结论标明证据、来源和假设。\n- 区分事实、推断和未知事项。\n- 复核关键数字并说明验证方法。\n- 不输出隐藏思维链或内部草稿，只给出可审查的简洁依据。\n- 结尾列出未解决问题和后续行动。`,
+        es: `[CONTRATO DE VERIFICACIÓN GPT‑5.6]\n- Cite pruebas, fuentes y supuestos.\n- Separe hechos, inferencias e incógnitas.\n- Verifique cifras y explique el método de comprobación.\n- No revele razonamiento interno; ofrezca una justificación breve y revisable.\n- Termine con asuntos pendientes y próximas acciones.`,
+        fr: `[CONTRAT DE VÉRIFICATION GPT‑5.6]\n- Citez les preuves, sources et hypothèses.\n- Séparez faits, inférences et inconnues.\n- Revérifiez les chiffres et indiquez la méthode de contrôle.\n- Ne révélez pas le raisonnement interne; donnez une justification concise et vérifiable.\n- Terminez par les points ouverts et les prochaines actions.`
+    };
+
+    // ========================================================
+    // PROMPT GENERATION
+    // ========================================================
+    function generatePrompt() {
+        const labels = promptLabels[currentLang];
+        const fields = {};
+        if (currentTab === '5w1h') {
+            document.querySelectorAll('#\\35 w1h textarea').forEach(textarea => {
+                const id = textarea.id.replace('w1h-', '');
+                fields[id] = textarea.value;
+            });
+        } else {
+            document.querySelectorAll(`#${currentTab} textarea`).forEach(textarea => {
+                const id = textarea.id.split('-').slice(1).join('_');
+                fields[id] = textarea.value;
+            });
+        }
+        const promptParts = [];
+        switch(currentTab) {
+            case 'ghes':
+                if(fields.goal) promptParts.push(`[${labels.goal}]\n${fields.goal}`);
+                if(fields.hint) promptParts.push(`[${labels.hint}]\n${fields.hint}`);
+                if(fields.example) promptParts.push(`[${labels.example}]\n${fields.example}`);
+                if(fields.style) promptParts.push(`[${labels.style}]\n${fields.style}`);
+                break;
+            case 'crispe':
+                if(fields.context) promptParts.push(`[${labels.context}]\n${fields.context}`);
+                if(fields.role) promptParts.push(`[${labels.role}]\n${fields.role}`);
+                if(fields.input) promptParts.push(`[${labels.input}]\n${fields.input}`);
+                if(fields.steps) promptParts.push(`[${labels.steps}]\n${fields.steps}`);
+                if(fields.personality) promptParts.push(`[${labels.personality}]\n${fields.personality}`);
+                if(fields.example) promptParts.push(`[${labels.example}]\n${fields.example}`);
+                break;
+            case 'cape':
+                if(fields.context) promptParts.push(`[${labels.context}]\n${fields.context}`);
+                if(fields.action) promptParts.push(`[${labels.action}]\n${fields.action}`);
+                if(fields.purpose) promptParts.push(`[${labels.purpose}]\n${fields.purpose}`);
+                if(fields.expectation) promptParts.push(`[${labels.expectation}]\n${fields.expectation}`);
+                break;
+            case 'prompt':
+                if(fields.purpose) promptParts.push(`[${labels.purpose}]\n${fields.purpose}`);
+                if(fields.role) promptParts.push(`[${labels.role}]\n${fields.role}`);
+                if(fields.output) promptParts.push(`[${labels.output}]\n${fields.output}`);
+                if(fields.mode) promptParts.push(`[${labels.mode}]\n${fields.mode}`);
+                if(fields.persona) promptParts.push(`[${labels.persona}]\n${fields.persona}`);
+                if(fields.tone) promptParts.push(`[${labels.tone}]\n${fields.tone}`);
+                break;
+            case '5w1h':
+                if(fields.who) promptParts.push(`[${labels.who}]\n${fields.who}`);
+                if(fields.what) promptParts.push(`[${labels.what}]\n${fields.what}`);
+                if(fields.when) promptParts.push(`[${labels.when}]\n${fields.when}`);
+                if(fields.where) promptParts.push(`[${labels.where}]\n${fields.where}`);
+                if(fields.why) promptParts.push(`[${labels.why}]\n${fields.why}`);
+                if(fields.how) promptParts.push(`[${labels.how}]\n${fields.how}`);
+                break;
+            case 'aida':
+                if(fields.attention) promptParts.push(`[${labels.attention}]\n${fields.attention}`);
+                if(fields.interest) promptParts.push(`[${labels.interest}]\n${fields.interest}`);
+                if(fields.desire) promptParts.push(`[${labels.desire}]\n${fields.desire}`);
+                if(fields.action) promptParts.push(`[${labels.action}]\n${fields.action}`);
+                break;
+            case 'storytelling':
+                if(fields.beginning) promptParts.push(`[${labels.beginning}]\n${fields.beginning}`);
+                if(fields.middle) promptParts.push(`[${labels.middle}]\n${fields.middle}`);
+                if(fields.end) promptParts.push(`[${labels.end}]\n${fields.end}`);
+                break;
+        }
+        const basePrompt = promptParts.join('\n\n');
+        const contract = gpt56Contract[currentLang] || gpt56Contract.en;
+        const prompt = basePrompt ? `${basePrompt}\n\n${contract}` : '';
+        const outputEl = document.getElementById('output');
+        if (prompt) {
+            outputEl.textContent = prompt;
+            outputEl.classList.remove('empty');
+        } else {
+            outputEl.textContent = translations[currentLang].output_placeholder_empty;
+            outputEl.classList.add('empty');
+        }
+        updateStats(prompt);
+    }
+
+    function updateStats(text) {
+        document.getElementById('charCount').textContent = text.length;
+        document.getElementById('wordCount').textContent = text.trim() ? text.trim().split(/\s+/).length : 0;
+    }
+
+    // ========================================================
+    // CLIPBOARD / NOTIFICATIONS
+    // ========================================================
+    function copyToClipboard() {
+        const outputText = document.getElementById('output').textContent;
+        const emptyText = translations[currentLang].output_placeholder_empty;
+        const initialText = translations[currentLang].output_placeholder_initial;
+        if (!outputText || outputText === emptyText || outputText === initialText) {
+            showNotification('warningNotification');
+            return;
+        }
+        JKE_COPY_TEXT(outputText).then(() => showNotification('copyNotification')).catch(err => console.error('Copy failed:', err));
+    }
+
+    function showNotification(id) {
+        const notification = document.getElementById(id);
+        notification.classList.add('show');
+        setTimeout(() => notification.classList.remove('show'), 2500);
+    }
+
+    function clearFields() {
+        if (currentTab === '5w1h') {
+            document.querySelectorAll('#\\35 w1h textarea').forEach(input => input.value = '');
+        } else {
+            document.querySelectorAll(`#${currentTab} textarea`).forEach(input => input.value = '');
+        }
+        const outputEl = document.getElementById('output');
+        outputEl.textContent = translations[currentLang].output_placeholder_initial;
+        outputEl.classList.add('empty');
+        updateStats('');
+    }
+
+    // ========================================================
+    // BOOT
+    // ========================================================
+    document.addEventListener('DOMContentLoaded', () => {
+        initTheme();
+        updateDateline();
+        document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+        document.querySelectorAll('textarea').forEach(input => input.addEventListener('input', generatePrompt));
+        selectLanguage('ja');
+    });
+</script>
+</body>
+</html>

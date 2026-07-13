@@ -1,0 +1,2152 @@
+<!DOCTYPE html>
+<html lang="ja" data-current-lang="ja" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%232563eb%27/%3E%3Ctext x=%2732%27 y=%2742%27 text-anchor=%27middle%27 font-size=%2732%27 fill=%27white%27%3EAI%3C/text%3E%3C/svg%3E">
+  <title data-i18n="appTitle">GPT-5.6 プロンプトライブラリ</title>
+  <style>
+    :root {
+      --bg-primary: #f0f2f5;
+      --bg-sidebar: #ffffff;
+      --bg-main: #ffffff;
+      --bg-card: #f7f9fc;
+      --bg-prompt: #f5f8ff;
+      --bg-input: #ffffff;
+      --bg-hover: #edf2f7;
+      --bg-active: #e3ecf7;
+      --bg-modal-overlay: rgba(0,0,0,0.4);
+      --text-primary: #1a202c;
+      --text-secondary: #4a5568;
+      --text-muted: #a0aec0;
+      --text-accent: #2b6cb0;
+      --border-color: #e2e8f0;
+      --border-light: #edf2f7;
+      --accent: #3182ce;
+      --accent-hover: #2b6cb0;
+      --accent-light: #ebf4ff;
+      --success: #38a169;
+      --success-light: #c6f6d5;
+      --danger: #e53e3e;
+      --danger-light: #fed7d7;
+      --warning: #d69e2e;
+      --warning-light: #fefcbf;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.1);
+      --shadow-glow: 0 0 20px rgba(49,130,206,0.15);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+      --font-main: 'Noto Sans JP', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+      --sidebar-width: 340px;
+      --topbar-height: 48px;
+      --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #0f1117;
+      --bg-sidebar: #161822;
+      --bg-main: #1a1d2e;
+      --bg-card: #1e2235;
+      --bg-prompt: #1e2235;
+      --bg-input: #252940;
+      --bg-hover: #2a2f45;
+      --bg-active: #2d3352;
+      --bg-modal-overlay: rgba(0,0,0,0.65);
+      --text-primary: #e2e8f0;
+      --text-secondary: #a0aec0;
+      --text-muted: #64708a;
+      --text-accent: #63b3ed;
+      --border-color: #2d3348;
+      --border-light: #252940;
+      --accent: #4299e1;
+      --accent-hover: #63b3ed;
+      --accent-light: rgba(66,153,225,0.15);
+      --success: #48bb78;
+      --success-light: rgba(72,187,120,0.15);
+      --danger: #fc8181;
+      --danger-light: rgba(252,129,129,0.15);
+      --warning: #f6e05e;
+      --warning-light: rgba(246,224,94,0.15);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.2);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.25);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.35);
+      --shadow-glow: 0 0 20px rgba(66,153,225,0.2);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: var(--font-main);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      overflow: hidden;
+      height: 100vh;
+      transition: background var(--transition), color var(--transition);
+    }
+
+    /* ═══════ TOP BAR ═══════ */
+    .topbar {
+      height: var(--topbar-height);
+      background: var(--bg-sidebar);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 12px;
+      z-index: 100;
+      transition: background var(--transition), border-color var(--transition);
+    }
+    .topbar-title {
+      font-weight: 700;
+      font-size: 1.05em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .topbar-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+    .icon-btn {
+      width: 34px; height: 34px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-color);
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1em;
+      transition: all var(--transition);
+    }
+    .icon-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      border-color: var(--accent);
+    }
+    .icon-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .home-link { text-decoration: none; flex-shrink: 0; }
+    .topbar-stats {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+    }
+    .stat-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 26px;
+      padding: 3px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 999px;
+      background: var(--bg-card);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.68em;
+      white-space: nowrap;
+    }
+    .stat-chip strong { color: var(--text-primary); font-size: 1.05em; }
+    .prompt-favorite-btn {
+      width: 27px;
+      height: 27px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all var(--transition);
+      font-size: 1rem;
+      line-height: 1;
+    }
+    .prompt-favorite-btn:hover { background: var(--warning-light); transform: scale(1.08); }
+    .prompt-favorite-btn.active { color: #f59e0b; }
+    .filtered-empty {
+      padding: 36px 16px;
+      text-align: center;
+      color: var(--text-muted);
+      border: 1.5px dashed var(--border-color);
+      border-radius: var(--radius-md);
+      background: var(--bg-card);
+    }
+    body.density-compact .sidebar-header { padding: 10px 12px 8px; }
+    body.density-compact .sidebar-body { padding-top: 4px; }
+    body.density-compact .cat-header { padding-top: 7px; padding-bottom: 7px; }
+    body.density-compact .task-item { padding-top: 4px; padding-bottom: 4px; }
+    body.density-compact .main-pane { padding-top: 18px; }
+    body.density-compact .var-card { padding: 12px; margin-bottom: 16px; }
+    body.density-compact .var-item { padding: 8px; margin-bottom: 6px; }
+    body.density-compact .prompt-box { padding: 12px 14px 10px; margin-bottom: 9px; }
+    body.density-compact .prompt-top-row { margin-bottom: 7px; }
+    body.density-compact .prompt-bottom { margin-top: 9px; padding-top: 7px; }
+
+    /* ═══════ LAYOUT ═══════ */
+    .app-layout {
+      display: flex;
+      height: calc(100vh - var(--topbar-height));
+      overflow: hidden;
+    }
+
+    /* ═══════ SIDEBAR ═══════ */
+    .sidebar {
+      width: var(--sidebar-width);
+      min-width: var(--sidebar-width);
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+    }
+    .sidebar.collapsed {
+      width: 0;
+      min-width: 0;
+      border-right: none;
+    }
+    .sidebar-header {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .sidebar-search {
+      position: relative;
+      margin-bottom: 12px;
+    }
+    .sidebar-search input {
+      width: 100%;
+      padding: 9px 14px 9px 36px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      color: var(--text-primary);
+      font-size: 0.9em;
+      outline: none;
+      transition: all var(--transition);
+    }
+    .sidebar-search input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(49,130,206,0.12);
+    }
+    .sidebar-search input::placeholder { color: var(--text-muted); }
+    .sidebar-search .search-icon {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 0.9em;
+      pointer-events: none;
+    }
+    .sidebar-search .search-clear {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 0.8em;
+      cursor: pointer;
+      display: none;
+      background: none;
+      border: none;
+      padding: 2px 4px;
+    }
+    .sidebar-search .search-clear.visible { display: block; }
+    .sidebar-tools {
+      display: flex;
+      gap: 6px;
+    }
+    .sidebar-tool-btn {
+      flex: 1;
+      padding: 7px 4px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      font-size: 0.78em;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .sidebar-tool-btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+    .sidebar-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 12px 20px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-color) transparent;
+    }
+    .sidebar-body::-webkit-scrollbar { width: 5px; }
+    .sidebar-body::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+
+    /* ═══════ CATEGORY BLOCK ═══════ */
+    .cat-block {
+      margin-bottom: 6px;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      transition: all var(--transition);
+    }
+    .cat-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 10px 10px 6px;
+      cursor: pointer;
+      border-radius: var(--radius-md);
+      transition: all var(--transition);
+      user-select: none;
+    }
+    .cat-header:hover { background: var(--bg-hover); }
+    .cat-chevron {
+      font-size: 0.65em;
+      color: var(--text-muted);
+      transition: transform 0.2s;
+      width: 16px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .cat-chevron.open { transform: rotate(90deg); }
+    .cat-emoji { font-size: 1.15em; flex-shrink: 0; }
+    .cat-title {
+      font-size: 0.92em;
+      font-weight: 600;
+      color: var(--text-primary);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .cat-count {
+      font-size: 0.7em;
+      color: var(--text-muted);
+      background: var(--bg-card);
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-weight: 500;
+    }
+    .cat-actions {
+      display: flex;
+      gap: 2px;
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .cat-header:hover .cat-actions { opacity: 1; }
+    .cat-action-btn {
+      width: 26px; height: 26px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8em;
+      transition: all var(--transition);
+    }
+    .cat-action-btn:hover { background: var(--bg-active); color: var(--text-primary); }
+    .cat-action-btn.add-btn:hover { color: var(--success); }
+    .cat-action-btn.del-btn:hover { color: var(--danger); }
+
+    .task-list { padding: 2px 0 6px 20px; }
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--transition);
+      margin-bottom: 2px;
+      position: relative;
+    }
+    .task-item:hover { background: var(--bg-hover); }
+    .task-item.active {
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .task-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 4px;
+      bottom: 4px;
+      width: 3px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+    .task-drag-handle {
+      color: var(--text-muted);
+      font-size: 0.85em;
+      cursor: grab;
+      opacity: 0;
+      transition: opacity var(--transition);
+      flex-shrink: 0;
+    }
+    .task-item:hover .task-drag-handle { opacity: 0.6; }
+    .task-name {
+      flex: 1;
+      font-size: 0.88em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .task-prompt-count {
+      font-size: 0.65em;
+      color: var(--text-muted);
+      background: var(--bg-card);
+      padding: 1px 6px;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+    .task-actions {
+      display: flex;
+      gap: 1px;
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .task-item:hover .task-actions { opacity: 1; }
+    .task-action-btn {
+      width: 24px; height: 24px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      border-radius: 5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75em;
+      transition: all var(--transition);
+    }
+    .task-action-btn:hover { background: var(--bg-active); color: var(--text-primary); }
+    .task-action-btn.del-btn:hover { color: var(--danger); }
+
+    .add-category-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      border: 1.5px dashed var(--border-color);
+      border-radius: var(--radius-md);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.85em;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .add-category-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    /* ═══════ MAIN PANE ═══════ */
+    .main-pane {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 36px 60px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-color) transparent;
+    }
+    .main-pane::-webkit-scrollbar { width: 6px; }
+    .main-pane::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      text-align: center;
+      gap: 12px;
+    }
+    .empty-state-icon { font-size: 3em; opacity: 0.5; }
+    .empty-state-text { font-size: 1em; line-height: 1.6; }
+
+    .detail-title {
+      font-size: 1.4em;
+      font-weight: 700;
+      margin-bottom: 20px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* ═══════ VARIABLES CARD ═══════ */
+    .var-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      margin-bottom: 24px;
+    }
+    .var-card-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .var-card-title {
+      font-size: 0.85em;
+      font-weight: 600;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .var-add-btn {
+      margin-left: auto;
+      padding: 4px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      font-size: 0.78em;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .var-add-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-light);
+    }
+    .var-item {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      margin-bottom: 10px;
+      transition: all var(--transition);
+      cursor: move;
+    }
+    .var-item:hover {
+      border-color: var(--accent);
+      box-shadow: 0 2px 8px rgba(49,130,206,0.08);
+    }
+    .var-item:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(49,130,206,0.1);
+    }
+    .var-item-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      gap: 6px;
+    }
+    .var-drag-handle {
+      color: var(--text-muted);
+      cursor: grab;
+      font-size: 0.9em;
+      user-select: none;
+      opacity: 0.4;
+      transition: opacity var(--transition);
+    }
+    .var-item:hover .var-drag-handle { opacity: 0.8; }
+    .var-label {
+      font-size: 0.85em;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .var-auto-badge {
+      font-size: 0.6em;
+      color: var(--warning);
+      margin-left: 2px;
+    }
+    .var-item-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 2px;
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .var-item:hover .var-item-actions { opacity: 1; }
+    .var-action-btn {
+      width: 24px; height: 24px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      border-radius: 5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75em;
+      transition: all var(--transition);
+    }
+    .var-action-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .var-textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-family: var(--font-main);
+      font-size: 0.9em;
+      line-height: 1.5;
+      resize: vertical;
+      min-height: 50px;
+      max-height: 300px;
+      outline: none;
+      transition: all var(--transition);
+    }
+    .var-textarea:focus {
+      border-color: var(--accent);
+      background: var(--bg-input);
+    }
+    .var-textarea::placeholder { color: var(--text-muted); }
+    .no-vars-msg {
+      color: var(--text-muted);
+      font-size: 0.82em;
+      text-align: center;
+      padding: 8px;
+    }
+    .var-syntax-hint {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 1px 8px;
+      border-radius: 4px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.78em;
+      font-weight: 500;
+      letter-spacing: -0.5px;
+    }
+
+    /* ═══════ PROMPTS SECTION ═══════ */
+    .prompts-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .prompts-title {
+      font-size: 1em;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .view-toggle {
+      display: inline-flex;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-left: 8px;
+    }
+    .view-toggle-btn {
+      padding: 4px 10px;
+      font-size: 0.75em;
+      font-weight: 500;
+      border: none;
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .view-toggle-btn:not(:last-child) { border-right: 1px solid var(--border-color); }
+    .view-toggle-btn:hover { background: var(--bg-hover); }
+    .view-toggle-btn.active { background: var(--accent); color: #fff; }
+    .prompt-add-btn {
+      margin-left: auto;
+      padding: 6px 14px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.82em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .prompt-add-btn:hover { background: var(--accent-hover); box-shadow: var(--shadow-sm); }
+
+    /* ═══════ PROMPT BOX ═══════ */
+    .prompt-box {
+      background: var(--bg-prompt);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: 18px 18px 14px;
+      margin-bottom: 14px;
+      position: relative;
+      cursor: move;
+      transition: all var(--transition);
+    }
+    .prompt-box:hover {
+      border-color: var(--border-color);
+      box-shadow: var(--shadow-sm);
+    }
+    .prompt-top-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .prompt-checkbox {
+      width: 18px; height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .prompt-drag-handle {
+      color: var(--text-muted);
+      font-size: 0.9em;
+      cursor: grab;
+      opacity: 0.3;
+      transition: opacity var(--transition);
+    }
+    .prompt-box:hover .prompt-drag-handle { opacity: 0.7; }
+    .prompt-number {
+      font-size: 0.72em;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg-card);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .prompt-fav-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.9em;
+      padding: 2px;
+      transition: all var(--transition);
+    }
+    .prompt-fav-btn:hover { transform: scale(1.2); }
+    .prompt-fav-btn.active { color: #f6ad55; }
+    .prompt-actions-row {
+      margin-left: auto;
+      display: flex;
+      gap: 2px;
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .prompt-box:hover .prompt-actions-row { opacity: 1; }
+    .prompt-action-btn {
+      padding: 4px 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.78em;
+      transition: all var(--transition);
+    }
+    .prompt-action-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .prompt-action-btn.edit-btn:hover { color: var(--accent); }
+    .prompt-action-btn.del-btn:hover { color: var(--danger); }
+
+    .prompt-content {
+      margin-bottom: 0;
+      font-size: 0.93em;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      color: var(--text-primary);
+    }
+    .prompt-content.collapsed {
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .toggle-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 0.8em;
+      padding: 4px 0;
+      margin-top: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .toggle-btn:hover { text-decoration: underline; }
+
+    .prompt-bottom {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-light);
+    }
+    .copy-btn {
+      padding: 5px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      font-size: 0.8em;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .copy-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-light);
+    }
+    .copy-btn.copied {
+      border-color: var(--success);
+      color: var(--success);
+      background: var(--success-light);
+    }
+
+    /* ═══════ MARKDOWN RENDERED ═══════ */
+    .markdown-rendered {
+      padding: 14px 18px;
+      background: var(--bg-input);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-light);
+      line-height: 1.7;
+      color: var(--text-primary);
+    }
+    .markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3 {
+      margin-top: 0.8em; margin-bottom: 0.5em; font-weight: 700;
+    }
+    .markdown-rendered h1 { font-size: 1.4em; border-bottom: 1px solid var(--border-light); padding-bottom: 0.3em; }
+    .markdown-rendered h2 { font-size: 1.2em; }
+    .markdown-rendered h3 { font-size: 1.08em; }
+    .markdown-rendered p { margin-bottom: 0.8em; }
+    .markdown-rendered ul, .markdown-rendered ol { padding-left: 1.5em; margin-bottom: 0.8em; }
+    .markdown-rendered li { margin-bottom: 0.3em; }
+    .markdown-rendered code {
+      background: var(--bg-card); padding: 2px 6px; border-radius: 3px;
+      font-family: var(--font-mono); font-size: 0.88em;
+    }
+    .markdown-rendered pre {
+      background: #1e1e2e; color: #cdd6f4; padding: 14px 16px;
+      border-radius: var(--radius-sm); overflow-x: auto; margin-bottom: 0.8em;
+      font-family: var(--font-mono); font-size: 0.88em;
+    }
+    .markdown-rendered pre code { background: transparent; color: inherit; padding: 0; }
+    .markdown-rendered blockquote {
+      border-left: 3px solid var(--accent); padding-left: 14px;
+      color: var(--text-secondary); margin: 0.8em 0; font-style: italic;
+    }
+    .markdown-rendered table { border-collapse: collapse; width: 100%; margin-bottom: 0.8em; }
+    .markdown-rendered th, .markdown-rendered td {
+      border: 1px solid var(--border-color); padding: 8px 12px; text-align: left;
+    }
+    .markdown-rendered th { background: var(--bg-card); font-weight: 600; }
+    .markdown-rendered a { color: var(--accent); text-decoration: none; }
+    .markdown-rendered a:hover { text-decoration: underline; }
+    .markdown-rendered hr { border: none; border-top: 1px solid var(--border-light); margin: 1em 0; }
+
+    /* ═══════ DRAGGING ═══════ */
+    .dragging { opacity: 0.4; transform: scale(0.97); }
+    .drag-over { border-color: var(--accent) !important; background: var(--accent-light) !important; }
+
+    /* ═══════ MODAL ═══════ */
+    .modal-backdrop { background: var(--bg-modal-overlay); }
+    .modal-content {
+      background: var(--bg-main);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+    }
+    .modal-header {
+      border-bottom: 1px solid var(--border-light);
+      padding: 18px 24px;
+    }
+    .modal-title { font-weight: 700; font-size: 1.1em; }
+    .modal-body { padding: 20px 24px; }
+    .modal-footer {
+      border-top: 1px solid var(--border-light);
+      padding: 14px 24px;
+    }
+    .modal .form-control {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-main);
+      transition: all var(--transition);
+    }
+    .modal .form-control:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(49,130,206,0.12);
+    }
+    .modal .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+    }
+    .modal .btn-primary:hover { background: var(--accent-hover); }
+    .modal .btn-secondary {
+      background: var(--bg-card);
+      border-color: var(--border-color);
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+    }
+
+    /* ═══════ IMPORT AREA ═══════ */
+    .import-area {
+      border: 2px dashed var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      text-align: center;
+      margin-top: 10px;
+      background: var(--bg-card);
+      transition: all var(--transition);
+    }
+    .import-area.dragover { border-color: var(--accent); background: var(--accent-light); }
+
+    /* ═══════ TOAST ═══════ */
+    .toast-container {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast-item {
+      padding: 12px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 0.88em;
+      font-weight: 500;
+      box-shadow: var(--shadow-md);
+      animation: toastIn 0.3s ease-out;
+      max-width: 380px;
+    }
+    .toast-item.success { background: var(--success-light); color: var(--success); border: 1px solid var(--success); }
+    .toast-item.error { background: var(--danger-light); color: var(--danger); border: 1px solid var(--danger); }
+    .toast-item.info { background: var(--accent-light); color: var(--accent); border: 1px solid var(--accent); }
+    .toast-item.removing { animation: toastOut 0.3s ease-in forwards; }
+    @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
+
+    /* ═══════ FONT SIZES ═══════ */
+    .font-size-small { font-size: 0.88em !important; }
+    .font-size-medium { font-size: 1em !important; }
+    .font-size-large { font-size: 1.12em !important; }
+    .font-size-xlarge { font-size: 1.24em !important; }
+
+    /* ═══════ RESPONSIVE ═══════ */
+    @media (max-width: 900px) {
+      .topbar-stats { display: none; }
+    }
+    @media (max-width: 768px) {
+      :root { --sidebar-width: 280px; }
+      .main-pane { padding: 16px 18px 40px; }
+      .sidebar.collapsed + .main-pane { padding: 16px; }
+      .topbar { padding: 0 12px; }
+    }
+    @media (max-width: 480px) {
+      :root { --sidebar-width: 100vw; }
+      .sidebar:not(.collapsed) + .main-pane { display: none; }
+    }
+
+    /* ═══════ LANG DROPDOWN ═══════ */
+    .lang-dropdown { position: relative; }
+    .lang-dropdown .dropdown-menu {
+      position: absolute;
+      top: calc(100% + 7px);
+      right: 0;
+      z-index: 500;
+      display: none;
+      margin: 0;
+      padding: 6px;
+      list-style: none;
+      background: var(--bg-main);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-md);
+      min-width: 150px;
+    }
+    .lang-dropdown .dropdown-menu.show { display: block; }
+    .lang-dropdown .dropdown-item {
+      display: block;
+      width: 100%;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.88em;
+      padding: 7px 10px;
+      border-radius: 6px;
+      transition: all var(--transition);
+    }
+    .lang-dropdown .dropdown-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+    /* Font size popup */
+    .fontsize-popup {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 6px;
+      background: var(--bg-main);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-md);
+      padding: 8px;
+      display: none;
+      z-index: 200;
+      gap: 4px;
+    }
+    .fontsize-popup.show { display: flex; }
+    .fs-btn {
+      width: 32px; height: 32px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      transition: all var(--transition);
+    }
+    .fs-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .fs-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* ═══════ SELF-CONTAINED MODAL / FORM UTILITIES ═══════ */
+    .position-relative { position: relative; }
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 5000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: var(--bg-modal-overlay);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .modal.show { display: flex; }
+    .modal-dialog { width: min(760px, 100%); max-height: 92vh; overflow: auto; }
+    .modal-dialog.modal-lg { width: min(900px, 100%); }
+    .modal-content { overflow: hidden; }
+    .modal-header, .modal-footer { display: flex; align-items: center; gap: 10px; }
+    .modal-header .btn-close { margin-left: auto; }
+    .modal-footer { justify-content: flex-end; }
+    .btn-close {
+      width: 30px; height: 30px; border: 0; border-radius: 50%; cursor: pointer;
+      background: var(--bg-card); color: var(--text-secondary); position: relative;
+    }
+    .btn-close::before, .btn-close::after {
+      content: ''; position: absolute; left: 8px; right: 8px; top: 14px;
+      height: 1.5px; background: currentColor;
+    }
+    .btn-close::before { transform: rotate(45deg); }
+    .btn-close::after { transform: rotate(-45deg); }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 8px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);
+      cursor: pointer; font-family: var(--font-main); font-size: .9em;
+    }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--bg-card); color: var(--text-secondary); }
+    .form-control {
+      display: block; width: 100%; padding: 9px 12px; border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary);
+      outline: none;
+    }
+    .form-control:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(49,130,206,.12); }
+    .form-label { display: block; }
+    .mb-1 { margin-bottom: .25rem; } .mb-2 { margin-bottom: .5rem; }
+
+    /* ═══════ HIDDEN ═══════ */
+    .file-input-hidden { display: none; }
+
+    /* ═══════ KEYBOARD HINT ═══════ */
+    .kbd-hint {
+      font-size: 0.65em;
+      color: var(--text-muted);
+      background: var(--bg-card);
+      padding: 1px 5px;
+      border-radius: 3px;
+      border: 1px solid var(--border-light);
+      font-family: var(--font-mono);
+      margin-left: 4px;
+    }
+  </style>
+</head>
+<body>
+  <!-- ═══ TOPBAR ═══ -->
+  <div class="topbar">
+    <a class="icon-btn home-link" href="../index.html" title="Prompt Book Home" aria-label="Prompt Book Home">←</a>
+    <button class="icon-btn" onclick="toggleSidebar()" title="Toggle Sidebar" id="sidebarToggleBtn">☰</button>
+    <div class="topbar-title">
+      <span>📚</span>
+      <span data-i18n="appTitle">GPT-5.6 プロンプトライブラリ</span>
+    </div>
+    <div class="topbar-stats" aria-label="Library statistics">
+      <span class="stat-chip" title="Categories">C <strong id="statCats">0</strong></span>
+      <span class="stat-chip" title="Tasks">T <strong id="statTasks">0</strong></span>
+      <span class="stat-chip" title="Prompts">P <strong id="statPrompts">0</strong></span>
+      <span class="stat-chip" title="Favorites">★ <strong id="statFavs">0</strong></span>
+    </div>
+    <div class="topbar-controls">
+      <button class="icon-btn" id="favoriteFilterBtn" onclick="toggleFavoriteFilter()" title="Favorites only" aria-label="Favorites only">☆</button>
+      <button class="icon-btn" id="densityToggle" onclick="toggleDensity()" title="Compact / comfortable density" aria-label="Display density">▦</button>
+      <div class="position-relative" id="fontSizeWrapper">
+        <button class="icon-btn" onclick="toggleFontSizePopup()" title="Font Size">Aa</button>
+        <div class="fontsize-popup" id="fontSizePopup">
+          <button class="fs-btn" data-size="small" onclick="setFontSize('small')" style="font-size:0.8em;">A</button>
+          <button class="fs-btn active" data-size="medium" onclick="setFontSize('medium')">A</button>
+          <button class="fs-btn" data-size="large" onclick="setFontSize('large')" style="font-size:1.15em;">A</button>
+          <button class="fs-btn" data-size="xlarge" onclick="setFontSize('xlarge')" style="font-size:1.3em;">A</button>
+        </div>
+      </div>
+      <button class="icon-btn" id="themeToggle" onclick="toggleTheme()" title="Dark/Light Mode">🌙</button>
+      <div class="lang-dropdown dropdown">
+        <button class="icon-btn dropdown-toggle" onclick="toggleLangMenu(event)" style="width:auto;padding:0 10px;gap:4px;font-size:0.85em;" id="langBtn" aria-haspopup="true" aria-expanded="false">
+          🌐 <span id="langBtnLabel">日本語</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="#" data-lang="ja">日本語</a></li>
+          <li><a class="dropdown-item" href="#" data-lang="en">English</a></li>
+          <li><a class="dropdown-item" href="#" data-lang="zh">简体中文</a></li>
+          <li><a class="dropdown-item" href="#" data-lang="ko">한국어</a></li>
+          <li><a class="dropdown-item" href="#" data-lang="fr">Français</a></li>
+          <li><a class="dropdown-item" href="#" data-lang="es">Español</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MAIN LAYOUT ═══ -->
+  <div class="app-layout">
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-search">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Search..." oninput="handleSearch(this.value)">
+          <button class="search-clear" id="searchClear" onclick="clearSearch()">✕</button>
+        </div>
+        <div class="sidebar-tools">
+          <button class="sidebar-tool-btn" onclick="exportData()" data-i18n="exportBtn">📤 エクスポート</button>
+          <button class="sidebar-tool-btn" onclick="toggleImportArea()" data-i18n="importBtn">📥 インポート</button>
+        </div>
+        <div id="importArea" class="import-area" style="display:none;">
+          <div style="font-size:0.85em; color:var(--text-secondary); margin-bottom:10px;" data-i18n="importInstructions">JSONファイルをドラッグするかクリックして選択してください</div>
+          <input type="file" id="fileInput" class="file-input-hidden" accept=".json" onchange="handleFileSelect(event)">
+          <button class="sidebar-tool-btn" onclick="document.getElementById('fileInput').click()" style="display:inline-block;width:auto;padding:6px 16px;" data-i18n="fileSelect">ファイル選択</button>
+          <div style="margin-top:8px;">
+            <button class="sidebar-tool-btn" onclick="toggleImportArea()" style="display:inline-block;width:auto;padding:4px 12px;font-size:0.75em;" data-i18n="cancel">キャンセル</button>
+          </div>
+          <div id="statusMessage"></div>
+        </div>
+      </div>
+      <div class="sidebar-body" id="sidebarBody">
+        <div id="cat-container"></div>
+        <button class="add-category-btn" onclick="openCategoryModal()" data-i18n="addCategory">＋ 新しいカテゴリを追加</button>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main-pane" id="mainPane">
+      <div id="detail-area">
+        <div class="empty-state">
+          <div class="empty-state-icon">📝</div>
+          <div class="empty-state-text" data-i18n="noSelection">
+            左側から項目を選択してください。<br>タスクをクリックすると詳細プロンプトが表示されます。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TOAST CONTAINER ═══ -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ═══ MODAL ═══ -->
+  <div class="modal" tabindex="-1" id="editModal">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 id="modalTitle" class="modal-title"></h5>
+          <button type="button" class="btn-close" onclick="closeModal()" aria-label="Close" style="filter: var(--text-muted);"></button>
+        </div>
+        <div class="modal-body">
+          <div id="emojiInputRow" style="display:none;">
+            <label for="modalEmoji" class="form-label mb-1" style="font-size:0.88em;color:var(--text-secondary);" data-i18n="emojiLabel">絵文字</label>
+            <input type="text" id="modalEmoji" class="form-control mb-2" placeholder="📁" maxlength="2" style="width:80px;">
+          </div>
+          <input type="text" id="modalInput" class="form-control mb-2" placeholder="">
+          <textarea id="modalTextarea" class="form-control" rows="10" style="display:none; resize:both; min-height:200px; font-family:var(--font-mono); font-size:0.92em; line-height:1.6;"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()" data-i18n="cancel">キャンセル</button>
+          <button type="button" class="btn btn-primary" onclick="saveModal()" data-i18n="saveBtn">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script src="../runtime-config.js"></script>
+<script src="vendor/runtime.js"></script>
+<script>
+/* ══════════════════════════════════════════════════
+   GLOBAL STATE
+   ══════════════════════════════════════════════════ */
+let data;
+let currentCat = null, currentTask = null;
+let modalMode = null, modalRefObj = null, modalType = null;
+let catToggleState;
+let currentFontSize;
+let selectedPrompt = null;
+let currentLang = 'ja';
+let draggedElement = null, dragType = null, dragContext = null;
+let currentVarState = {};
+let currentViewMode = 'raw';
+let searchQuery = '';
+let favoriteOnly = false;
+let densityMode = localStorage.getItem('promptDensity') || 'comfortable';
+let favorites = (() => {
+  try { return new Set(JSON.parse(localStorage.getItem('promptFavorites') || '[]')); }
+  catch (_) { return new Set(); }
+})();
+
+/* ══════════════════════════════════════════════════
+   VARIABLE SYNTAX  (industry-standard {{var}})
+   ══════════════════════════════════════════════════ */
+// Matches {{ var_name }} with optional whitespace; non-greedy; no nesting.
+const VAR_RE_GLOBAL = () => /\{\{\s*([^{}]+?)\s*\}\}/g;
+
+function extractAutoVars(prompt) {
+  const out = new Set();
+  const re = VAR_RE_GLOBAL();
+  let m;
+  while ((m = re.exec(prompt)) !== null) {
+    const v = m[1].trim();
+    if (v) out.add(v);
+  }
+  return out;
+}
+
+function buildVarRegex(name) {
+  // Build a regex that matches {{ name }} with optional whitespace inside.
+  return new RegExp(`\\{\\{\\s*${escapeRegex(name)}\\s*\\}\\}`, 'g');
+}
+
+/* ══════════════════════════════════════════════════
+   TRANSLATIONS (full i18n)
+   ══════════════════════════════════════════════════ */
+const translations = {
+  ja: {
+    langName:"日本語",appTitle:"GPT-5.6 プロンプトライブラリ",fontSizeLabel:"文字サイズ:",exportBtn:"📤 エクスポート",importBtn:"📥 インポート",importTitle:"📥 ファイルをインポート",importInstructions:"JSONファイルをドラッグするかクリックして選択してください",fileSelect:"ファイル選択",cancel:"キャンセル",addCategory:"＋ 新しいカテゴリを追加",noSelection:"左側から項目を選択してください。<br>タスクをクリックすると詳細プロンプトが表示されます。",emojiLabel:"絵文字",saveBtn:"保存",taskContentPlaceholder:"タスク関連の内容を入力してください...",taskContentHint:"※ 内容を入力すると以下のプロンプトにすぐに反映されます。<b>Ctrl+V</b>で貼り付けも可能です！",completedPrompt:"完成したプロンプト",addPrompt:"＋ プロンプト追加",copy:"📋 コピー",edit:"編集",delete:"削除",copyComplete:"✅ コピー完了",showMore:"もっと見る ▼",showLess:"折りたたむ ▲",noSelectedPrompt:"選択されたプロンプトがありません。",categoryAdd:"カテゴリ追加",categoryEdit:"カテゴリ編集",taskAdd:"タスク追加",taskEdit:"タスク編集",promptAdd:"プロンプト追加",promptEdit:"プロンプト編集",enterCategoryName:"カテゴリ名を入力してください！",enterTaskName:"タスク名を入力してください！",enterPromptContent:"プロンプトの内容を入力してください！",confirmDeleteCategory:"カテゴリを削除しますか？",confirmDeleteTask:"タスクを削除しますか？",confirmDeletePrompt:"プロンプトを削除しますか？",copyFailed:"コピーに失敗しました！",jsonOnly:"JSONファイルのみサポートしています。",fileReading:"ファイルを読み込み中...",invalidFile:"正しいプロンプトライブラリファイルではありません。",emptyCategoryData:"カテゴリデータがないため空のライブラリで開始します。",importComplete:"インポート完了！{0}個のカテゴリをインポートしました。",importFailed:"インポートに失敗しました: {0}",fileReadError:"ファイル読み込み中にエラーが発生しました。",exportComplete:"📤 エクスポート完了: {0}",exportFailed:"❌ エクスポート失敗: {0}",variablesLabel:"変数入力",variablePlaceholder:"{0}を入力",noVariables:"変数なし",addVariable:"+ 変数追加",enterVariableName:"追加する変数名を入力してください:",enterNewVariableName:"新しい変数名を入力してください:",variableExists:"この変数名は既に存在します。",confirmDeleteVariable:"変数「{0}」を削除しますか？",deleteFromPromptsWarning:"⚠️ この変数はプロンプト内で使用されています。削除するとプロンプトからも削除されます。",dragToReorder:"ドラッグして順序を変更",viewRaw:"📝 原文",viewMarkdown:"📄 MD",searchPlaceholder:"検索...",syntaxHintTitle:"変数構文: {{変数名}} と書くと自動検出されます"
+  },
+  en: {
+    langName:"English",appTitle:"GPT-5.6 Prompt Library",fontSizeLabel:"Font Size:",exportBtn:"📤 Export",importBtn:"📥 Import",importTitle:"📥 Import File",importInstructions:"Drag & drop a JSON file or click to select",fileSelect:"Select File",cancel:"Cancel",addCategory:"+ Add Category",noSelection:"Select an item from the left.<br>Click a task to see prompts.",emojiLabel:"Emoji",saveBtn:"Save",taskContentPlaceholder:"Enter task-related content here...",taskContentHint:"※ Content entered here will be reflected in prompts below.",completedPrompt:"Completed Prompts",addPrompt:"+ Add Prompt",copy:"📋 Copy",edit:"Edit",delete:"Delete",copyComplete:"✅ Copied!",showMore:"Show More ▼",showLess:"Show Less ▲",noSelectedPrompt:"No prompt selected.",categoryAdd:"Add Category",categoryEdit:"Edit Category",taskAdd:"Add Task",taskEdit:"Edit Task",promptAdd:"Add Prompt",promptEdit:"Edit Prompt",enterCategoryName:"Please enter a category name!",enterTaskName:"Please enter a task name!",enterPromptContent:"Please enter the prompt content!",confirmDeleteCategory:"Delete this category?",confirmDeleteTask:"Delete this task?",confirmDeletePrompt:"Delete this prompt?",copyFailed:"Failed to copy!",jsonOnly:"Only JSON files are supported.",fileReading:"Reading file...",invalidFile:"Not a valid prompt library file.",emptyCategoryData:"No category data, starting empty.",importComplete:"Imported {0} categories!",importFailed:"Import failed: {0}",fileReadError:"Error reading file.",exportComplete:"📤 Exported: {0}",exportFailed:"❌ Export failed: {0}",variablesLabel:"Variables",variablePlaceholder:"Enter {0}",noVariables:"No variables",addVariable:"+ Add Variable",enterVariableName:"Enter variable name:",enterNewVariableName:"Enter new variable name:",variableExists:"Variable already exists.",confirmDeleteVariable:"Delete variable \"{0}\"?",deleteFromPromptsWarning:"⚠️ Used in prompts. Deleting removes it from all prompts.",dragToReorder:"Drag to reorder",viewRaw:"📝 Raw",viewMarkdown:"📄 MD",searchPlaceholder:"Search...",syntaxHintTitle:"Variable syntax: write {{var_name}} and it's auto-detected"
+  },
+  zh: {
+    langName:"简体中文",appTitle:"GPT-5.6 提示词库",fontSizeLabel:"字体大小:",exportBtn:"📤 导出",importBtn:"📥 导入",importTitle:"📥 导入文件",importInstructions:"拖放JSON文件或点击选择",fileSelect:"选择文件",cancel:"取消",addCategory:"＋ 添加分类",noSelection:"请从左侧选择项目。<br>点击任务查看详细提示。",emojiLabel:"表情符号",saveBtn:"保存",taskContentPlaceholder:"在此输入任务相关内容...",taskContentHint:"※ 输入内容将立即反映在下面的提示中。",completedPrompt:"完成的提示",addPrompt:"＋ 添加提示",copy:"📋 复制",edit:"编辑",delete:"删除",copyComplete:"✅ 已复制",showMore:"展开 ▼",showLess:"收起 ▲",noSelectedPrompt:"未选择任何提示。",categoryAdd:"添加分类",categoryEdit:"编辑分类",taskAdd:"添加任务",taskEdit:"编辑任务",promptAdd:"添加提示",promptEdit:"编辑提示",enterCategoryName:"请输入分类名称！",enterTaskName:"请输入任务名称！",enterPromptContent:"请输入提示内容！",confirmDeleteCategory:"确定删除此分类？",confirmDeleteTask:"确定删除此任务？",confirmDeletePrompt:"确定删除此提示？",copyFailed:"复制失败！",jsonOnly:"仅支持JSON文件。",fileReading:"正在读取...",invalidFile:"不是有效的提示库文件。",emptyCategoryData:"未找到分类数据。",importComplete:"导入完成！{0}个分类。",importFailed:"导入失败：{0}",fileReadError:"读取文件错误。",exportComplete:"📤 导出完成: {0}",exportFailed:"❌ 导出失败: {0}",variablesLabel:"输入变量",variablePlaceholder:"输入{0}",noVariables:"无变量",addVariable:"+ 添加变量",enterVariableName:"输入变量名:",enterNewVariableName:"输入新变量名:",variableExists:"变量名已存在。",confirmDeleteVariable:"删除变量「{0}」？",deleteFromPromptsWarning:"⚠️ 此变量在提示词中使用。删除后也将从所有提示词中移除。",dragToReorder:"拖动排序",viewRaw:"📝 原文",viewMarkdown:"📄 MD",searchPlaceholder:"搜索...",syntaxHintTitle:"变量语法: 写 {{变量名}} 即可自动检测"
+  },
+  ko: {
+    langName:"한국어",appTitle:"GPT-5.6 프롬프트 라이브러리",fontSizeLabel:"글꼴:",exportBtn:"📤 내보내기",importBtn:"📥 가져오기",importTitle:"📥 파일 가져오기",importInstructions:"JSON 파일을 드래그하거나 클릭하여 선택하세요",fileSelect:"파일 선택",cancel:"취소",addCategory:"＋ 카테고리 추가",noSelection:"왼쪽에서 항목을 선택하세요.<br>태스크를 클릭하면 프롬프트가 표시됩니다.",emojiLabel:"이모지",saveBtn:"저장",taskContentPlaceholder:"태스크 관련 내용을 입력하세요...",taskContentHint:"※ 입력 내용이 아래 프롬프트에 즉시 반영됩니다.",completedPrompt:"완성된 프롬프트",addPrompt:"＋ 프롬프트 추가",copy:"📋 복사",edit:"편집",delete:"삭제",copyComplete:"✅ 복사 완료",showMore:"더 보기 ▼",showLess:"접기 ▲",noSelectedPrompt:"선택된 프롬프트가 없습니다.",categoryAdd:"카테고리 추가",categoryEdit:"카테고리 편집",taskAdd:"태스크 추가",taskEdit:"태스크 편집",promptAdd:"프롬프트 추가",promptEdit:"프롬프트 편집",enterCategoryName:"카테고리명을 입력해주세요!",enterTaskName:"태스크명을 입력해주세요!",enterPromptContent:"프롬프트 내용을 입력해주세요!",confirmDeleteCategory:"카테고리를 삭제하시겠습니까?",confirmDeleteTask:"태스크를 삭제하시겠습니까?",confirmDeletePrompt:"프롬프트를 삭제하시겠습니까?",copyFailed:"복사에 실패했습니다!",jsonOnly:"JSON 파일만 지원합니다.",fileReading:"파일 읽는 중...",invalidFile:"올바른 프롬프트 라이브러리 파일이 아닙니다.",emptyCategoryData:"카테고리 데이터 없음. 빈 라이브러리로 시작합니다.",importComplete:"가져오기 완료! {0}개 카테고리.",importFailed:"가져오기 실패: {0}",fileReadError:"파일 읽기 오류.",exportComplete:"📤 내보내기 완료: {0}",exportFailed:"❌ 내보내기 실패: {0}",variablesLabel:"변수 입력",variablePlaceholder:"{0}을(를) 입력",noVariables:"변수 없음",addVariable:"+ 변수 추가",enterVariableName:"추가할 변수명을 입력하세요:",enterNewVariableName:"새 변수명을 입력하세요:",variableExists:"이 변수명은 이미 존재합니다.",confirmDeleteVariable:"변수 \"{0}\"을(를) 삭제하시겠습니까?",deleteFromPromptsWarning:"⚠️ 프롬프트에서 사용 중. 삭제하면 모든 프롬프트에서도 제거됩니다.",dragToReorder:"드래그하여 순서 변경",viewRaw:"📝 원본",viewMarkdown:"📄 MD",searchPlaceholder:"검색...",syntaxHintTitle:"변수 문법: {{변수명}} 으로 작성하면 자동검출됩니다"
+  },
+  fr: {
+    langName:"Français",appTitle:"Bibliothèque de prompts GPT-5.6",fontSizeLabel:"Taille:",exportBtn:"📤 Exporter",importBtn:"📥 Importer",importTitle:"📥 Importer",importInstructions:"Glissez un fichier JSON ou cliquez",fileSelect:"Sélectionner",cancel:"Annuler",addCategory:"+ Ajouter catégorie",noSelection:"Sélectionnez un élément à gauche.<br>Cliquez pour voir les prompts.",emojiLabel:"Émoji",saveBtn:"Enregistrer",taskContentPlaceholder:"Contenu de la tâche...",taskContentHint:"※ Reflété immédiatement.",completedPrompt:"Prompts complétés",addPrompt:"+ Ajouter prompt",copy:"📋 Copier",edit:"Modifier",delete:"Supprimer",copyComplete:"✅ Copié !",showMore:"Plus ▼",showLess:"Moins ▲",noSelectedPrompt:"Aucun prompt sélectionné.",categoryAdd:"Ajouter catégorie",categoryEdit:"Modifier catégorie",taskAdd:"Ajouter tâche",taskEdit:"Modifier tâche",promptAdd:"Ajouter prompt",promptEdit:"Modifier prompt",enterCategoryName:"Entrez un nom !",enterTaskName:"Entrez un nom !",enterPromptContent:"Entrez le contenu !",confirmDeleteCategory:"Supprimer la catégorie ?",confirmDeleteTask:"Supprimer la tâche ?",confirmDeletePrompt:"Supprimer ce prompt ?",copyFailed:"Échec !",jsonOnly:"JSON uniquement.",fileReading:"Lecture...",invalidFile:"Fichier invalide.",emptyCategoryData:"Aucune donnée.",importComplete:"Importé {0} catégories !",importFailed:"Échec : {0}",fileReadError:"Erreur de lecture.",exportComplete:"📤 Exporté : {0}",exportFailed:"❌ Échec : {0}",variablesLabel:"Variables",variablePlaceholder:"Saisir {0}",noVariables:"Aucune variable",addVariable:"+ Ajouter variable",enterVariableName:"Nom de la variable :",enterNewVariableName:"Nouveau nom :",variableExists:"Existe déjà.",confirmDeleteVariable:"Supprimer «{0}» ?",deleteFromPromptsWarning:"⚠️ Utilisée dans les prompts.",dragToReorder:"Glisser",viewRaw:"📝 Brut",viewMarkdown:"📄 MD",searchPlaceholder:"Rechercher...",syntaxHintTitle:"Syntaxe: écrivez {{nom_variable}} pour détection auto"
+  },
+  es: {
+    langName:"Español",appTitle:"Biblioteca de prompts GPT-5.6",fontSizeLabel:"Tamaño:",exportBtn:"📤 Exportar",importBtn:"📥 Importar",importTitle:"📥 Importar",importInstructions:"Arrastra un JSON o haz clic",fileSelect:"Seleccionar",cancel:"Cancelar",addCategory:"+ Añadir categoría",noSelection:"Selecciona un elemento.<br>Haz clic para ver prompts.",emojiLabel:"Emoji",saveBtn:"Guardar",taskContentPlaceholder:"Contenido de la tarea...",taskContentHint:"※ Reflejo inmediato.",completedPrompt:"Prompts completados",addPrompt:"+ Añadir prompt",copy:"📋 Copiar",edit:"Editar",delete:"Eliminar",copyComplete:"✅ ¡Copiado!",showMore:"Más ▼",showLess:"Menos ▲",noSelectedPrompt:"Ningún prompt seleccionado.",categoryAdd:"Añadir categoría",categoryEdit:"Editar categoría",taskAdd:"Añadir tarea",taskEdit:"Editar tarea",promptAdd:"Añadir prompt",promptEdit:"Editar prompt",enterCategoryName:"¡Introduce nombre!",enterTaskName:"¡Introduce nombre!",enterPromptContent:"¡Introduce contenido!",confirmDeleteCategory:"¿Eliminar categoría?",confirmDeleteTask:"¿Eliminar tarea?",confirmDeletePrompt:"¿Eliminar prompt?",copyFailed:"¡Error!",jsonOnly:"Solo JSON.",fileReading:"Leyendo...",invalidFile:"Archivo inválido.",emptyCategoryData:"Sin datos.",importComplete:"¡Importadas {0} categorías!",importFailed:"Fallo: {0}",fileReadError:"Error.",exportComplete:"📤 Exportado: {0}",exportFailed:"❌ Fallo: {0}",variablesLabel:"Variables",variablePlaceholder:"Introducir {0}",noVariables:"Sin variables",addVariable:"+ Añadir variable",enterVariableName:"Nombre:",enterNewVariableName:"Nuevo nombre:",variableExists:"Ya existe.",confirmDeleteVariable:"¿Eliminar \"{0}\"?",deleteFromPromptsWarning:"⚠️ Usada en prompts.",dragToReorder:"Arrastrar",viewRaw:"📝 Original",viewMarkdown:"📄 MD",searchPlaceholder:"Buscar...",syntaxHintTitle:"Sintaxis: escriba {{nombre_var}} para detección automática"
+  }
+};
+
+/* ══════════════════════════════════════════════════
+   i18n
+   ══════════════════════════════════════════════════ */
+function applyTranslations(lang) {
+  const dict = translations[lang] || translations.ja;
+  document.documentElement.lang = lang;
+  document.documentElement.dataset.currentLang = lang;
+  document.getElementById('langBtnLabel').textContent = dict.langName;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if (dict[key]) el.innerHTML = dict[key];
+  });
+  const si = document.getElementById('searchInput');
+  if (si) si.placeholder = dict.searchPlaceholder || 'Search...';
+  currentLang = lang;
+}
+function t(key, ...args) {
+  const dict = translations[currentLang] || translations.ja;
+  let text = dict[key] || key;
+  args.forEach((arg, i) => { text = text.replace(`{${i}}`, arg); });
+  return text;
+}
+
+/* ══════════════════════════════════════════════════
+   INITIALIZATION
+   ══════════════════════════════════════════════════ */
+function initialize() {
+  data = JSON.parse(localStorage.getItem('promptUIData') || 'null') || {
+    version: '5.6-starter-2026.07',
+    cats:[
+      {id:'cat56work',name:'GPT-5.6 業務設計',emoji:'🧭',tasks:[
+        {id:'task56route',name:'Sol / Terra / Luna ルーティング',variables:['task','audience'],prompts:[
+          'あなたはGPT-5.6の業務ルーターです。タスク「{{task}}」を、速度・深い推論・長時間エージェント作業の観点で分類し、Sol / Terra / Luna の推奨を1つ選んでください。対象読者は{{audience}}です。出力は「推奨」「理由」「代替」「確認事項」の4項目にし、未確認事項は推測せず明示してください。',
+          '次の業務を実行可能な計画へ分解してください：{{task}}。内部の思考過程は開示せず、代わりに前提・判断基準・根拠・検証方法・最終成果物だけを簡潔に示してください。'
+        ]},
+        {id:'task56review',name:'品質レビュー契約',variables:['draft','requirements'],prompts:[
+          `以下のドラフトを要求事項に照らしてレビューしてください。
+
+[要求事項]
+{{requirements}}
+
+[ドラフト]
+{{draft}}
+
+各指摘を「重大度 / 該当箇所 / 根拠 / 修正案」に分け、事実・推論・未確認事項を区別してください。最後に合格/条件付き合格/要修正を判定してください。`
+        ]}
+      ]},
+      {id:'cat56docs',name:'文書・データ・マルチモーダル',emoji:'📎',tasks:[
+        {id:'task56rag',name:'根拠付き文書分析',variables:['question','source_scope'],prompts:[
+          '提供された{{source_scope}}だけを根拠に「{{question}}」へ回答してください。主張ごとに出典位置を示し、資料にない内容は「資料内で確認できない」と明記してください。矛盾する資料がある場合は両方を並べ、どちらを採用したかと理由を説明してください。'
+        ]},
+        {id:'task56office',name:'PDF・PPT・Excel・画像統合',variables:['objective'],prompts:[
+          '添付されたPDF、PowerPoint、Excel、画像を横断して{{objective}}を実行してください。最初にファイル別の役割と利用可否を一覧化し、次に共通キーで情報を結合してください。表・グラフ・画像から読み取った値は原位置を示し、OCRや推定値には不確実性を付けてください。最後に不足資料と人間が確認すべき項目を列挙してください。'
+        ]}
+      ]},
+      {id:'cat56eng',name:'エンジニアリング',emoji:'⚙️',tasks:[
+        {id:'task56fmea',name:'設計変更・FMEAレビュー',variables:['change','requirements','evidence'],prompts:[
+          `自動車部品の設計変更レビューを行ってください。
+変更内容：{{change}}
+要求・基準：{{requirements}}
+試験・解析根拠：{{evidence}}
+
+機能、故障モード、影響、原因、現行管理、S/O/D、推奨対策、検証方法を表にまとめ、数値根拠がない項目は空欄にせず「要確認」としてください。安全・法規・製造・サービスへの波及も確認してください。`
+        ]}
+      ]}
+    ]
+  };
+  catToggleState = JSON.parse(localStorage.getItem('catToggleState') || '{}');
+  currentFontSize = localStorage.getItem('fontSizePreference') || 'medium';
+  const savedLang = localStorage.getItem('ui_lang') || 'ja';
+  const savedTheme = localStorage.getItem('themePreference') || 'light';
+
+  applyTranslations(savedLang);
+  setFontSize(currentFontSize);
+  applyTheme(savedTheme);
+  applyDensity(densityMode, false);
+  render();
+}
+
+/* ══════════════════════════════════════════════════
+   THEME
+   ══════════════════════════════════════════════════ */
+function toggleTheme() {
+  const current = document.documentElement.dataset.theme;
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem('themePreference', theme);
+  document.getElementById('themeToggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+
+/* ══════════════════════════════════════════════════
+   SIDEBAR TOGGLE
+   ══════════════════════════════════════════════════ */
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+}
+
+/* ══════════════════════════════════════════════════
+   FONT SIZE
+   ══════════════════════════════════════════════════ */
+function toggleFontSizePopup() {
+  document.getElementById('fontSizePopup').classList.toggle('show');
+}
+function toggleLangMenu(event) {
+  event?.stopPropagation();
+  const menu = document.querySelector('.lang-dropdown .dropdown-menu');
+  const btn = document.getElementById('langBtn');
+  const open = !menu.classList.contains('show');
+  menu.classList.toggle('show', open);
+  btn?.setAttribute('aria-expanded', String(open));
+}
+function closeLangMenu() {
+  const menu = document.querySelector('.lang-dropdown .dropdown-menu');
+  const btn = document.getElementById('langBtn');
+  menu?.classList.remove('show');
+  btn?.setAttribute('aria-expanded', 'false');
+}
+function setFontSize(size) {
+  document.body.classList.remove('font-size-small','font-size-medium','font-size-large','font-size-xlarge');
+  document.body.classList.add(`font-size-${size}`);
+  document.querySelectorAll('.fs-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.size === size);
+  });
+  currentFontSize = size;
+  localStorage.setItem('fontSizePreference', size);
+  document.getElementById('fontSizePopup').classList.remove('show');
+}
+
+/* ══════════════════════════════════════════════════
+   FAVORITES, DENSITY & LIBRARY STATS
+   ══════════════════════════════════════════════════ */
+function simpleHash(text) {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+function promptKey(catId, taskId, promptText) {
+  return `${catId}|${taskId}|${simpleHash(String(promptText))}`;
+}
+function persistFavorites() {
+  localStorage.setItem('promptFavorites', JSON.stringify([...favorites]));
+}
+function toggleFavorite(idx) {
+  const cat = data.cats.find(c => c.id === currentCat);
+  const task = cat && cat.tasks.find(t => t.id === currentTask);
+  if (!task || !task.prompts[idx]) return;
+  const key = promptKey(currentCat, currentTask, task.prompts[idx]);
+  favorites.has(key) ? favorites.delete(key) : favorites.add(key);
+  persistFavorites();
+  renderPrompts(task.prompts);
+  updateStats();
+}
+function toggleFavoriteFilter() {
+  favoriteOnly = !favoriteOnly;
+  const btn = document.getElementById('favoriteFilterBtn');
+  if (btn) {
+    btn.classList.toggle('active', favoriteOnly);
+    btn.textContent = favoriteOnly ? '★' : '☆';
+  }
+  const cat = data.cats.find(c => c.id === currentCat);
+  const task = cat && cat.tasks.find(t => t.id === currentTask);
+  if (task) renderPrompts(task.prompts);
+}
+function applyDensity(mode, persist = true) {
+  densityMode = mode === 'compact' ? 'compact' : 'comfortable';
+  document.body.classList.toggle('density-compact', densityMode === 'compact');
+  const btn = document.getElementById('densityToggle');
+  if (btn) btn.classList.toggle('active', densityMode === 'compact');
+  if (persist) localStorage.setItem('promptDensity', densityMode);
+}
+function toggleDensity() {
+  applyDensity(densityMode === 'compact' ? 'comfortable' : 'compact');
+}
+function updateStats() {
+  if (!data || !Array.isArray(data.cats)) return;
+  let tasks = 0, prompts = 0;
+  const validFavoriteKeys = new Set();
+  data.cats.forEach(cat => {
+    tasks += cat.tasks.length;
+    cat.tasks.forEach(task => {
+      prompts += task.prompts.length;
+      task.prompts.forEach(p => validFavoriteKeys.add(promptKey(cat.id, task.id, p)));
+    });
+  });
+  let favoriteCount = 0;
+  favorites.forEach(k => { if (validFavoriteKeys.has(k)) favoriteCount++; });
+  const values = { statCats: data.cats.length, statTasks: tasks, statPrompts: prompts, statFavs: favoriteCount };
+  Object.entries(values).forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  });
+}
+
+/* ══════════════════════════════════════════════════
+   SEARCH
+   ══════════════════════════════════════════════════ */
+function handleSearch(q) {
+  searchQuery = q.toLowerCase().trim();
+  document.getElementById('searchClear').classList.toggle('visible', q.length > 0);
+  render();
+}
+function clearSearch() {
+  document.getElementById('searchInput').value = '';
+  searchQuery = '';
+  document.getElementById('searchClear').classList.remove('visible');
+  render();
+}
+
+/* ══════════════════════════════════════════════════
+   DATA & RENDER
+   ══════════════════════════════════════════════════ */
+function saveAndRerender() {
+  localStorage.setItem('promptUIData', JSON.stringify(data));
+  render();
+}
+
+function render() {
+  const $cat = document.getElementById('cat-container');
+  $cat.innerHTML = '';
+  
+  data.cats.forEach((cat, index) => {
+    // Search filter
+    let matchingTasks = cat.tasks;
+    if (searchQuery) {
+      const catMatch = cat.name.toLowerCase().includes(searchQuery);
+      matchingTasks = cat.tasks.filter(task => {
+        const taskMatch = task.name.toLowerCase().includes(searchQuery);
+        const promptMatch = task.prompts.some(p => p.toLowerCase().includes(searchQuery));
+        return catMatch || taskMatch || promptMatch;
+      });
+      if (!catMatch && matchingTasks.length === 0) return;
+    }
+
+    const totalPrompts = cat.tasks.reduce((s, t) => s + t.prompts.length, 0);
+    const isOpen = catToggleState[cat.id] !== false;
+    
+    const blk = document.createElement('div');
+    blk.className = 'cat-block';
+    blk.dataset.catId = cat.id;
+    
+    blk.innerHTML = `
+      <div class="cat-header" onclick="toggleCat('${cat.id}')">
+        <span class="cat-chevron ${isOpen ? 'open' : ''}">▶</span>
+        <span class="cat-emoji">${cat.emoji || '📁'}</span>
+        <span class="cat-title">${escapeHtml(cat.name)}</span>
+        <span class="cat-count">${totalPrompts}</span>
+        <div class="cat-actions" onclick="event.stopPropagation();">
+          <button class="cat-action-btn add-btn" onclick="openTaskModal('${cat.id}')" title="${t('taskAdd')}">＋</button>
+          <button class="cat-action-btn" onclick="openCategoryModal('${cat.id}')" title="${t('edit')}">✏️</button>
+          <button class="cat-action-btn del-btn" onclick="deleteCategory('${cat.id}')" title="${t('delete')}">🗑</button>
+        </div>
+      </div>
+      <div class="task-list" id="cat-tasks-${cat.id}" style="display:${isOpen ? '' : 'none'}"></div>
+    `;
+    $cat.appendChild(blk);
+    makeCategoryDraggable(blk, index);
+
+    const $tl = blk.querySelector('.task-list');
+    matchingTasks.forEach((task, taskIndex) => {
+      const origIdx = cat.tasks.indexOf(task);
+      const isActive = currentCat === cat.id && currentTask === task.id;
+      const $t = document.createElement('div');
+      $t.className = `task-item${isActive ? ' active' : ''}`;
+      $t.innerHTML = `
+        <span class="task-drag-handle">⋮</span>
+        <span class="task-name" onclick="showDetail('${cat.id}','${task.id}')">${escapeHtml(task.name)}</span>
+        <span class="task-prompt-count">${task.prompts.length}</span>
+        <div class="task-actions" onclick="event.stopPropagation();">
+          <button class="task-action-btn" onclick="openTaskModal('${cat.id}','${task.id}')" title="${t('edit')}">✏️</button>
+          <button class="task-action-btn del-btn" onclick="deleteTask('${cat.id}','${task.id}')" title="${t('delete')}">🗑</button>
+        </div>
+      `;
+      $tl.appendChild($t);
+      makeTaskDraggable($t, cat.id, origIdx);
+    });
+  });
+  
+  showDetail(currentCat, currentTask, true);
+  updateStats();
+}
+
+function toggleCat(id) {
+  const el = document.getElementById('cat-tasks-' + id);
+  if (!el) return;
+  const isNowOpen = el.style.display === 'none';
+  el.style.display = isNowOpen ? '' : 'none';
+  catToggleState[id] = isNowOpen;
+  localStorage.setItem('catToggleState', JSON.stringify(catToggleState));
+  // Update chevron
+  const blk = el.closest('.cat-block');
+  const chevron = blk.querySelector('.cat-chevron');
+  if (chevron) chevron.classList.toggle('open', isNowOpen);
+}
+
+/* ══════════════════════════════════════════════════
+   DETAIL AREA
+   ══════════════════════════════════════════════════ */
+function showDetail(catId, taskId, onlySilent) {
+  if (currentCat !== catId || currentTask !== taskId) {
+    currentVarState = {};
+  }
+  currentCat = catId;
+  currentTask = taskId;
+  selectedPrompt = null;
+
+  const $area = document.getElementById('detail-area');
+  const cat = data.cats.find(c => c.id === catId);
+  const task = cat && cat.tasks.find(t => t.id === taskId);
+
+  if (!cat || !task) {
+    if (!onlySilent) {
+      $area.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📝</div><div class="empty-state-text" data-i18n="noSelection">${t('noSelection')}</div></div>`;
+    }
+    return;
+  }
+
+  // Highlight active task
+  document.querySelectorAll('.task-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.task-item').forEach(el => {
+    const nameEl = el.querySelector('.task-name');
+    if (nameEl && nameEl.getAttribute('onclick')?.includes(taskId)) {
+      el.classList.add('active');
+    }
+  });
+
+  if (!task.variables) task.variables = [];
+
+  // Extract variables from prompts ({{var}} syntax)
+  const autoDetectedVars = new Set();
+  task.prompts.forEach(p => {
+    extractAutoVars(p).forEach(v => autoDetectedVars.add(v));
+  });
+
+  if (!task.variableOrder) task.variableOrder = [];
+  const allVarsSet = new Set([...task.variables.filter(v => v && v.trim()), ...autoDetectedVars]);
+  const validOrder = task.variableOrder.filter(v => allVarsSet.has(v));
+  allVarsSet.forEach(v => { if (!validOrder.includes(v)) validOrder.push(v); });
+  task.variableOrder = validOrder;
+  const allVars = task.variableOrder;
+
+  // Build variables HTML
+  let varsHtml = '';
+  if (allVars.length > 0) {
+    allVars.forEach((v, idx) => {
+      const isAuto = autoDetectedVars.has(v);
+      const val = currentVarState[v] || '';
+      varsHtml += `
+        <div class="var-item" data-var="${escapeHtml(v)}" data-idx="${idx}" draggable="true">
+          <div class="var-item-header">
+            <span class="var-drag-handle" title="${t('dragToReorder')}">⋮⋮</span>
+            <span class="var-label">{{${escapeHtml(v)}}}</span>
+            ${isAuto ? '<span class="var-auto-badge" title="Auto-detected">⚡</span>' : ''}
+            <div class="var-item-actions">
+              <button class="var-action-btn" onclick="editVariable('${escapeHtml(v)}')" title="${t('edit')}">✏️</button>
+              <button class="var-action-btn" onclick="deleteVariable('${escapeHtml(v)}')" title="${t('delete')}">🗑</button>
+            </div>
+          </div>
+          <textarea class="var-textarea" rows="2" placeholder="${t('variablePlaceholder', v)}" 
+                    oninput="updateVariable('${escapeHtml(v)}', this.value); autoResizeTextarea(this);">${escapeHtml(val)}</textarea>
+        </div>`;
+    });
+  } else {
+    varsHtml = `<div class="no-vars-msg">${t('noVariables')}</div>`;
+  }
+
+  $area.innerHTML = `
+    <div class="detail-title">${escapeHtml(task.name)}</div>
+    
+    <div class="var-card">
+      <div class="var-card-header">
+        <div class="var-card-title">🔤 ${t('variablesLabel')} <span class="var-syntax-hint" title="${t('syntaxHintTitle')}">{{ var }}</span></div>
+        <button class="var-add-btn" onclick="openAddVariableModal()">${t('addVariable')}</button>
+      </div>
+      <div id="variables-container">${varsHtml}</div>
+    </div>
+
+    <div class="prompts-header">
+      <div class="prompts-title">${t('completedPrompt')}</div>
+      <div class="view-toggle">
+        <button class="view-toggle-btn ${currentViewMode === 'raw' ? 'active' : ''}" onclick="setViewMode('raw')">${t('viewRaw')}</button>
+        <button class="view-toggle-btn ${currentViewMode === 'markdown' ? 'active' : ''}" onclick="setViewMode('markdown')">${t('viewMarkdown')}</button>
+      </div>
+      <button class="prompt-add-btn" onclick="openPromptModal('${cat.id}','${task.id}')">${t('addPrompt')}</button>
+    </div>
+    <div id="prompts-list"></div>
+  `;
+
+  renderPrompts(task.prompts);
+  initVariableDragAndDrop();
+}
+
+/* ══════════════════════════════════════════════════
+   VIEW MODE
+   ══════════════════════════════════════════════════ */
+function setViewMode(mode) {
+  currentViewMode = mode;
+  document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.trim() === (mode === 'raw' ? t('viewRaw') : t('viewMarkdown')));
+  });
+  const cat = data.cats.find(c => c.id === currentCat);
+  const task = cat && cat.tasks.find(t => t.id === currentTask);
+  if (task) renderPrompts(task.prompts);
+}
+
+/* ══════════════════════════════════════════════════
+   PROMPT RENDERING
+   ══════════════════════════════════════════════════ */
+function renderPrompts(prompts) {
+  const $list = document.getElementById('prompts-list');
+  if (!$list) return;
+  $list.innerHTML = '';
+
+  prompts.forEach((p, i) => {
+    if (selectedPrompt && (selectedPrompt.cat !== currentCat || selectedPrompt.task !== currentTask || selectedPrompt.idx !== i)) return;
+
+    const key = promptKey(currentCat, currentTask, p);
+    const isFav = favorites.has(key);
+    if (favoriteOnly && !isFav) return;
+
+    const txt = replacePH(p, currentVarState);
+    const box = document.createElement('div');
+    box.className = 'prompt-box';
+
+    const isChecked = selectedPrompt && selectedPrompt.idx === i;
+
+    let contentHtml;
+    if (currentViewMode === 'markdown') {
+      contentHtml = `<div class="markdown-rendered">${renderMarkdown(txt)}</div>`;
+    } else {
+      const lines = (txt.match(/\n/g) || []).length + 1;
+      const shouldCollapse = lines > 6 || txt.length > 400;
+      contentHtml = `
+        <pre class="prompt-content ${shouldCollapse ? 'collapsed' : ''}">${escapeHtml(txt)}</pre>
+        ${shouldCollapse ? `<button class="toggle-btn" onclick="togglePromptText(this)">${t('showMore')}</button>` : ''}
+      `;
+    }
+
+    box.innerHTML = `
+      <div class="prompt-top-row">
+        <input class="prompt-checkbox" type="checkbox" onchange="togglePromptSelect(${i}, this)" ${isChecked ? 'checked' : ''}>
+        <span class="prompt-drag-handle">⋮⋮</span>
+        <span class="prompt-number">#${i + 1}</span>
+        <button class="prompt-favorite-btn ${isFav ? 'active' : ''}" onclick="toggleFavorite(${i})" title="Favorite" aria-label="Favorite">${isFav ? '★' : '☆'}</button>
+        <div class="prompt-actions-row">
+          <button class="prompt-action-btn edit-btn" onclick="openPromptModal(currentCat,currentTask,${i})">${t('edit')}</button>
+          <button class="prompt-action-btn del-btn" onclick="deletePrompt(currentCat,currentTask,${i})">${t('delete')}</button>
+        </div>
+      </div>
+      ${contentHtml}
+      <div class="prompt-bottom">
+        <button class="copy-btn" onclick="copyPrompt(this)" data-raw-text="${escapeHtml(txt).replace(/"/g, '&quot;')}">${t('copy')}</button>
+      </div>
+    `;
+    $list.appendChild(box);
+    makePromptDraggable(box, currentCat, currentTask, i);
+  });
+
+  if ($list.children.length === 0) {
+    const message = favoriteOnly
+      ? (currentLang === 'ko' ? '즐겨찾기한 프롬프트가 없습니다.' : currentLang === 'en' ? 'No favorite prompts in this task.' : 'このタスクにはお気に入りがありません。')
+      : t('noSelectedPrompt');
+    $list.innerHTML = `<div class="filtered-empty">${message}</div>`;
+  }
+  updateStats();
+}
+
+/* ══════════════════════════════════════════════════
+   VARIABLE MANAGEMENT
+   ══════════════════════════════════════════════════ */
+function openAddVariableModal() {
+  const name = prompt(t('enterVariableName'));
+  if (name && name.trim()) addVariable(name.trim());
+}
+
+function addVariable(varName) {
+  const cat = data.cats.find(c => c.id === currentCat);
+  const task = cat && cat.tasks.find(t => t.id === currentTask);
+  if (!task) return;
+  if (!task.variables) task.variables = [];
+  
+  const autoVars = new Set();
+  task.prompts.forEach(p => {
+    extractAutoVars(p).forEach(v => autoVars.add(v));
+  });
+  if (task.variables.includes(varName) || autoVars.has(varName)) { alert(t('variableExists')); return; }
+  task.variables.push(varName);
+  currentVarState[varName] = '';
+  localStorage.setItem('promptUIData', JSON.stringify(data));
+  showDetail(currentCat, currentTask);
+}
+
+function deleteVariable(varName) {
+  const cat = data.cats.find(c => c.id === currentCat);
+  const task = cat && cat.tasks.find(t => t.id === currentTask);
+  if (!task) return;
+  const autoVars = new Set();
+  task.prompts.forEach(p => {
+    extractAutoVars(p).forEach(v => autoVars.add(v));
+  });
+  const isAuto = autoVars.has(varName);
+  let msg = t('confirmDeleteVariable', varName);
+  if (isAuto) msg += '\n\n' + t('deleteFromPromptsWarning');
+  if (!confirm(msg)) return;
+  if (task.variables) task.variables = task.variables.filter(v => v !== varName);
+  if (isAuto) task.prompts = task.prompts.map(p => p.replace(buildVarRegex(varName), ''));
+  delete currentVarState[varName];
+  localStorage.setItem('promptUIData', JSON.stringify(data));
+  showDetail(currentCat, currentTask);
+}
+
+function editVariable(oldName) {
+  const newName = prompt(t('enterNewVariableName'), oldName);
+  if (!newName || newName.trim() === '' || newName.trim() === oldName) return;
+  const cat = data.cats.find(c => c.id === currentCat);
+  const task = cat && cat.tasks.find(t => t.id === currentTask);
+  if (!task) return;
+  const trimmed = newName.trim();
+  const autoVars = new Set();
+  task.prompts.forEach(p => {
+    extractAutoVars(p).forEach(v => autoVars.add(v));
+  });
+  if ((task.variables && task.variables.includes(trimmed)) || (autoVars.has(trimmed) && trimmed !== oldName)) { alert(t('variableExists')); return; }
+  if (task.variables) {
+    const idx = task.variables.indexOf(oldName);
+    if (idx !== -1) task.variables[idx] = trimmed;
+    else task.variables.push(trimmed);
+  }
+  task.prompts = task.prompts.map(p => p.replace(buildVarRegex(oldName), `{{${trimmed}}}`));
+  if (currentVarState[oldName] !== undefined) { currentVarState[trimmed] = currentVarState[oldName]; delete currentVarState[oldName]; }
+  localStorage.setItem('promptUIData', JSON.stringify(data));
+  showDetail(currentCat, currentTask);
+}
+
+function updateVariable(key, value) {
+  currentVarState[key] = value;
+  const cat = data.cats.find(c => c.id === currentCat);
+  const task = cat && cat.tasks.find(t => t.id === currentTask);
+  if (task) renderPrompts(task.prompts);
+}
+
+function autoResizeTextarea(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 300) + 'px';
+}
+
+function initVariableDragAndDrop() {
+  const container = document.getElementById('variables-container');
+  if (!container) return;
+  const items = container.querySelectorAll('.var-item');
+  let draggedItem = null;
+  items.forEach(item => {
+    item.addEventListener('dragstart', e => { draggedItem = item; item.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+    item.addEventListener('dragend', () => { item.classList.remove('dragging'); items.forEach(i => i.classList.remove('drag-over')); draggedItem = null; });
+    item.addEventListener('dragover', e => { e.preventDefault(); if (item !== draggedItem) item.classList.add('drag-over'); });
+    item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+    item.addEventListener('drop', e => {
+      e.preventDefault(); item.classList.remove('drag-over');
+      if (!draggedItem || draggedItem === item) return;
+      reorderVariable(draggedItem.dataset.var, item.dataset.var);
+    });
+  });
+}
+
+function reorderVariable(fromVar, toVar) {
+  const cat = data.cats.find(c => c.id === currentCat);
+  const task = cat && cat.tasks.find(t => t.id === currentTask);
+  if (!task || !task.variableOrder) return;
+  const fi = task.variableOrder.indexOf(fromVar), ti = task.variableOrder.indexOf(toVar);
+  if (fi === -1 || ti === -1) return;
+  task.variableOrder.splice(fi, 1);
+  task.variableOrder.splice(ti, 0, fromVar);
+  localStorage.setItem('promptUIData', JSON.stringify(data));
+  showDetail(currentCat, currentTask);
+}
+
+/* ══════════════════════════════════════════════════
+   TOGGLES & UTILS
+   ══════════════════════════════════════════════════ */
+function togglePromptSelect(idx, cb) {
+  selectedPrompt = cb.checked ? { cat: currentCat, task: currentTask, idx } : null;
+  const cat = data.cats.find(c => c.id === currentCat);
+  const task = cat && cat.tasks.find(t => t.id === currentTask);
+  if (task) renderPrompts(task.prompts);
+}
+
+function replacePH(tpl, vs) {
+  return tpl.replace(VAR_RE_GLOBAL(), (m, p1) => {
+    const key = p1.trim();
+    return (vs[key] !== undefined && vs[key] !== '') ? vs[key] : m;
+  });
+}
+function escapeHtml(txt) { return txt.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
+function renderMarkdown(text) {
+  const blocks = [];
+  let src = String(text).replace(/```([\s\S]*?)```/g, (_, code) => {
+    const token = `@@CODE_${blocks.length}@@`;
+    blocks.push(`<pre><code>${escapeHtml(code.replace(/^\n|\n$/g, ''))}</code></pre>`);
+    return token;
+  });
+  src = escapeHtml(src)
+    .replace(/^###\s+(.+)$/gm, '<h3>$1</h3>')
+    .replace(/^##\s+(.+)$/gm, '<h2>$1</h2>')
+    .replace(/^#\s+(.+)$/gm, '<h1>$1</h1>')
+    .replace(/^&gt;\s?(.+)$/gm, '<blockquote>$1</blockquote>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^(?:-|\*)\s+(.+)$/gm, '<li>$1</li>')
+    .replace(/((?:<li>.*?<\/li>\n?)+)/g, '<ul>$1</ul>')
+    .replace(/\n{2,}/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+  src = `<p>${src}</p>`.replace(/<p>\s*(<(?:h[1-3]|ul|blockquote|pre)>)/g, '$1').replace(/(<\/(?:h[1-3]|ul|blockquote|pre)>)\s*<\/p>/g, '$1');
+  blocks.forEach((html, i) => { src = src.replace(`@@CODE_${i}@@`, html); });
+  return src;
+}
+function unescapeHtml(txt) { return txt.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,'&'); }
+function escapeRegex(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+function copyPrompt(btn) {
+  let text = btn.dataset.rawText ? unescapeHtml(btn.dataset.rawText) : '';
+  JKE_COPY_TEXT(text).then(() => {
+    btn.textContent = t('copyComplete');
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = t('copy'); btn.classList.remove('copied'); }, 1200);
+  }).catch(() => toast(t('copyFailed'), 'error'));
+}
+
+function togglePromptText(btn) {
+  const box = btn.closest('.prompt-box');
+  const pre = box.querySelector('.prompt-content');
+  if (!pre) return;
+  const collapsed = pre.classList.toggle('collapsed');
+  btn.innerHTML = collapsed ? t('showMore') : t('showLess');
+}
+
+/* ══════════════════════════════════════════════════
+   MODAL
+   ══════════════════════════════════════════════════ */
+function openCategoryModal(id) {
+  modalMode = id ? 'edit' : 'add'; modalType = 'cat';
+  const cat = id && data.cats.find(c => c.id === id);
+  modalRefObj = id ? cat : null;
+  showModal(t(id ? 'categoryEdit' : 'categoryAdd'), cat ? cat.name : '', false, '', cat ? cat.emoji : '📁');
+}
+function openTaskModal(catId, taskId) {
+  modalMode = taskId ? 'edit' : 'add'; modalType = 'task';
+  const cat = data.cats.find(c => c.id === catId);
+  const task = taskId && cat.tasks.find(t => t.id === taskId);
+  modalRefObj = { cat, task };
+  showModal(t(taskId ? 'taskEdit' : 'taskAdd'), task ? task.name : '', false);
+}
+function openPromptModal(catId, taskId, idx) {
+  modalMode = idx != null ? 'edit' : 'add'; modalType = 'prompt';
+  const cat = data.cats.find(c => c.id === catId);
+  const task = cat.tasks.find(t => t.id === taskId);
+  modalRefObj = { cat, task, idx };
+  showModal(t(idx != null ? 'promptEdit' : 'promptAdd'), '', true, idx != null ? task.prompts[idx] : '');
+  selectedPrompt = null;
+}
+function showModal(title, val, showTA, taVal = '', emojiVal = '') {
+  document.getElementById('modalTitle').textContent = title;
+  const $in = document.getElementById('modalInput'), $ta = document.getElementById('modalTextarea');
+  const $em = document.getElementById('modalEmoji'), $row = document.getElementById('emojiInputRow');
+  $row.style.display = modalType === 'cat' ? '' : 'none';
+  $em.value = emojiVal || '📁';
+  $in.style.display = showTA ? 'none' : ''; $in.value = val || '';
+  $ta.style.display = showTA ? '' : 'none'; $ta.value = taVal || '';
+  const modal = document.getElementById('editModal');
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+  setTimeout(() => (showTA ? $ta : $in).focus(), 80);
+}
+function closeModal() {
+  const modal = document.getElementById('editModal');
+  modal.classList.remove('show');
+  modal.setAttribute('aria-hidden', 'true');
+}
+function saveModal() {
+  const $in = document.getElementById('modalInput'), $ta = document.getElementById('modalTextarea'), $em = document.getElementById('modalEmoji');
+  if (modalType === 'cat') {
+    const name = $in.value.trim(), emoji = ($em.value || '📁').slice(0, 2);
+    if (!name) return alert(t('enterCategoryName'));
+    if (modalMode === 'add') data.cats.push({ id: 'cat' + Date.now(), name, emoji, tasks: [] });
+    else { modalRefObj.name = name; modalRefObj.emoji = emoji; }
+  } else if (modalType === 'task') {
+    const name = $in.value.trim();
+    if (!name) return alert(t('enterTaskName'));
+    if (modalMode === 'add') modalRefObj.cat.tasks.push({ id: 'task' + Date.now(), name, prompts: [] });
+    else modalRefObj.task.name = name;
+  } else if (modalType === 'prompt') {
+    const txt = $ta.value.trim();
+    if (!txt) return alert(t('enterPromptContent'));
+    if (modalMode === 'add') {
+      modalRefObj.task.prompts.push(txt);
+    } else {
+      const oldText = modalRefObj.task.prompts[modalRefObj.idx];
+      const oldKey = promptKey(modalRefObj.cat.id, modalRefObj.task.id, oldText);
+      const wasFavorite = favorites.has(oldKey);
+      if (wasFavorite) favorites.delete(oldKey);
+      modalRefObj.task.prompts[modalRefObj.idx] = txt;
+      if (wasFavorite) favorites.add(promptKey(modalRefObj.cat.id, modalRefObj.task.id, txt));
+      persistFavorites();
+    }
+  }
+  saveAndRerender(); closeModal();
+}
+
+/* ══════════════════════════════════════════════════
+   DELETE
+   ══════════════════════════════════════════════════ */
+function deleteCategory(id) {
+  if (!confirm(t('confirmDeleteCategory'))) return;
+  data.cats = data.cats.filter(c => c.id !== id);
+  if (currentCat === id) { currentCat = null; currentTask = null; }
+  saveAndRerender();
+}
+function deleteTask(cid, tid) {
+  const cat = data.cats.find(c => c.id === cid);
+  if (!cat || !confirm(t('confirmDeleteTask'))) return;
+  cat.tasks = cat.tasks.filter(t => t.id !== tid);
+  if (currentTask === tid) currentTask = null;
+  saveAndRerender();
+}
+function deletePrompt(cid, tid, idx) {
+  const cat = data.cats.find(c => c.id === cid);
+  const task = cat && cat.tasks.find(t => t.id === tid);
+  if (!task || !confirm(t('confirmDeletePrompt'))) return;
+  favorites.delete(promptKey(cid, tid, task.prompts[idx]));
+  persistFavorites();
+  task.prompts.splice(idx, 1);
+  if (selectedPrompt && selectedPrompt.cat === cid && selectedPrompt.task === tid) {
+    if (selectedPrompt.idx === idx) selectedPrompt = null;
+    else if (selectedPrompt.idx > idx) selectedPrompt.idx--;
+  }
+  saveAndRerender();
+}
+
+/* ══════════════════════════════════════════════════
+   DRAG AND DROP
+   ══════════════════════════════════════════════════ */
+function makeCategoryDraggable(el, index) {
+  el.draggable = true; el.dataset.index = index;
+  el.addEventListener('dragstart', e => { draggedElement = el; dragType = 'category'; dragContext = { index }; setTimeout(() => el.classList.add('dragging'), 0); });
+  el.addEventListener('dragend', () => { el.classList.remove('dragging'); document.querySelectorAll('.cat-block.drag-over').forEach(x => x.classList.remove('drag-over')); });
+  el.addEventListener('dragover', e => { e.preventDefault(); if (dragType === 'category' && draggedElement !== el) el.classList.add('drag-over'); });
+  el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+  el.addEventListener('drop', e => { e.preventDefault(); el.classList.remove('drag-over'); if (dragType !== 'category') return; const fi = dragContext.index; if (fi === index) return; const [m] = data.cats.splice(fi, 1); data.cats.splice(index, 0, m); saveAndRerender(); });
+}
+function makeTaskDraggable(el, catId, taskIndex) {
+  el.draggable = true;
+  el.addEventListener('dragstart', e => { e.stopPropagation(); draggedElement = el; dragType = 'task'; dragContext = { catId, taskIndex }; setTimeout(() => el.classList.add('dragging'), 0); });
+  el.addEventListener('dragend', () => { el.classList.remove('dragging'); document.querySelectorAll('.task-item.drag-over').forEach(x => x.classList.remove('drag-over')); });
+  el.addEventListener('dragover', e => { e.preventDefault(); if (dragType === 'task' && draggedElement !== el) el.classList.add('drag-over'); });
+  el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+  el.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); el.classList.remove('drag-over'); if (dragType !== 'task') return; const { catId: fc, taskIndex: fi } = dragContext; const fromCat = data.cats.find(c => c.id === fc); const toCat = data.cats.find(c => c.id === catId); if (!fromCat || !toCat) return; const [m] = fromCat.tasks.splice(fi, 1); toCat.tasks.splice(taskIndex, 0, m); saveAndRerender(); });
+}
+function makePromptDraggable(el, catId, taskId, promptIndex) {
+  el.draggable = true;
+  el.addEventListener('dragstart', e => { e.stopPropagation(); draggedElement = el; dragType = 'prompt'; dragContext = { catId, taskId, promptIndex }; setTimeout(() => el.classList.add('dragging'), 0); });
+  el.addEventListener('dragend', () => { el.classList.remove('dragging'); document.querySelectorAll('.prompt-box.drag-over').forEach(x => x.classList.remove('drag-over')); });
+  el.addEventListener('dragover', e => { e.preventDefault(); if (dragType === 'prompt' && draggedElement !== el) el.classList.add('drag-over'); });
+  el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+  el.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); el.classList.remove('drag-over'); if (dragType !== 'prompt') return; const fi = dragContext.promptIndex; const cat = data.cats.find(c => c.id === catId); const task = cat?.tasks.find(t => t.id === taskId); if (!task) return; const [m] = task.prompts.splice(fi, 1); task.prompts.splice(promptIndex, 0, m); saveAndRerender(); });
+}
+
+/* ══════════════════════════════════════════════════
+   EXPORT / IMPORT
+   ══════════════════════════════════════════════════ */
+function exportData() {
+  try {
+    const obj = { promptUIData: data, catToggleState, fontSizePreference: currentFontSize, exportDate: new Date().toISOString(), version: '2.0' };
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json;charset=utf-8' });
+    const fn = `prompt_library_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.json`;
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fn;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
+    toast(t('exportComplete', fn), 'success');
+  } catch (e) { toast(t('exportFailed', e.message), 'error'); }
+}
+function toggleImportArea() {
+  const a = document.getElementById('importArea');
+  a.style.display = a.style.display === 'none' ? 'block' : 'none';
+}
+function handleFileSelect(e) { const f = e.target.files[0]; if (f) processFile(f); }
+function processFile(file) {
+  if (!file.name.toLowerCase().endsWith('.json')) return toast(t('jsonOnly'), 'error');
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const obj = JSON.parse(e.target.result);
+      let d = obj.promptUIData;
+      if (!d || !Array.isArray(d.cats)) throw new Error(t('invalidFile'));
+      d.cats.forEach((cat, i) => { cat.id = cat.id || 'cat' + Date.now() + i; cat.tasks = cat.tasks || []; cat.tasks.forEach((task, j) => { task.id = task.id || 'task' + Date.now() + j; task.prompts = task.prompts || []; }); });
+      localStorage.setItem('promptUIData', JSON.stringify(d));
+      localStorage.setItem('catToggleState', JSON.stringify(obj.catToggleState || {}));
+      localStorage.setItem('fontSizePreference', obj.fontSizePreference || 'medium');
+      toast(t('importComplete', d.cats.length), 'success');
+      setTimeout(() => location.reload(), 1200);
+    } catch (err) { toast(t('importFailed', err.message), 'error'); }
+  };
+  reader.onerror = () => toast(t('fileReadError'), 'error');
+  reader.readAsText(file);
+}
+
+/* ══════════════════════════════════════════════════
+   TOAST
+   ══════════════════════════════════════════════════ */
+function toast(msg, type = 'info', dur = 3000) {
+  const c = document.getElementById('toastContainer');
+  const d = document.createElement('div');
+  d.className = `toast-item ${type}`;
+  d.textContent = msg;
+  c.appendChild(d);
+  setTimeout(() => { d.classList.add('removing'); setTimeout(() => d.remove(), 300); }, dur);
+}
+
+/* ══════════════════════════════════════════════════
+   EVENT LISTENERS
+   ══════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', initialize);
+
+document.addEventListener('click', e => {
+  if (e.target.matches('[data-lang]')) {
+    e.preventDefault();
+    const lang = e.target.dataset.lang;
+    localStorage.setItem('ui_lang', lang);
+    applyTranslations(lang);
+    closeLangMenu();
+    if (currentCat && currentTask) showDetail(currentCat, currentTask);
+  }
+  if (!e.target.closest('.lang-dropdown')) closeLangMenu();
+  // Close font size popup when clicking outside
+  if (!document.getElementById('fontSizeWrapper').contains(e.target)) {
+    document.getElementById('fontSizePopup').classList.remove('show');
+  }
+});
+
+document.getElementById('editModal').addEventListener('click', e => {
+  if (e.target.id === 'editModal') closeModal();
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  // Ctrl+K for search focus
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    document.getElementById('searchInput').focus();
+  }
+});
+
+// Modal enter key to save
+document.getElementById('editModal').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && modalType !== 'prompt') {
+    e.preventDefault();
+    saveModal();
+  }
+});
+
+// Import drag and drop
+const importArea = document.getElementById('importArea');
+['dragenter','dragover','dragleave','drop'].forEach(ev => {
+  importArea.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); }, false);
+});
+['dragenter','dragover'].forEach(ev => { importArea.addEventListener(ev, () => importArea.classList.add('dragover')); });
+['dragleave','drop'].forEach(ev => { importArea.addEventListener(ev, () => importArea.classList.remove('dragover')); });
+importArea.addEventListener('drop', e => { if (e.dataTransfer.files.length > 0) processFile(e.dataTransfer.files[0]); });
+
+</script>
+</body>
+</html>
