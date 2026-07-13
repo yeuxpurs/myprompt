@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jke-ai-toolkit-v2026.07.13-static-1';
+const CACHE_NAME = 'jke-ai-toolkit-v2026.07.13-static-2';
 const PRECACHE = [
   "./",
   "./index.html",
@@ -36,10 +36,10 @@ self.addEventListener('fetch', event => {
   if (req.mode === 'navigate') {
     event.respondWith(fetch(req).then(res => {
       const copy=res.clone(); caches.open(CACHE_NAME).then(c=>c.put(req,copy)); return res;
-    }).catch(async () => (await caches.match(req)) || (await caches.match(OFFLINE_URL))));
+    }).catch(async () => (await caches.match(req, {ignoreSearch:true})) || (await caches.match(OFFLINE_URL))));
     return;
   }
-  event.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
+  event.respondWith(caches.match(req, {ignoreSearch:true}).then(hit => hit || fetch(req).then(res => {
     if (res.ok) { const copy=res.clone(); caches.open(CACHE_NAME).then(c=>c.put(req,copy)); }
     return res;
   })));

@@ -11,8 +11,8 @@
 </style>
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-<script src="../config.js"></script>
-<script src="../assets/runtime.js"></script>
+<script src="../config.js?v=20260713.2"></script>
+<script src="../assets/runtime.js?v=20260713.2"></script>
 </head>
 <body><header class="top"><div class="brand"><a href="../index.html" class="home">←</a><span class="dot"></span><strong>ENGINEERING RAG STUDIO</strong></div><div class="actions"><select class="ctrl" id="lang"><option value="ko">KO</option><option value="ja">JA</option><option value="en">EN</option></select><button class="ctrl" id="theme">◐</button></div></header>
 <div class="layout"><section class="panel left"><div class="title"><div><h1 data-i="title">GPT‑5.6 RAG 프롬프트 스튜디오</h1><p data-i="subtitle">검색 질의 · HyDE · 출처 · 신뢰도 · 기술 보고서</p></div><span class="model-badge" id="profileBadge">GPT‑5.6 TERRA</span></div>
@@ -34,7 +34,7 @@ fields.forEach(id=>$(id).addEventListener('input',build));document.querySelector
 <script>
 (() => {
   if ('serviceWorker' in navigator && location.protocol !== 'file:' && (!window.JKE_RUNTIME || window.JKE_RUNTIME.config.enableServiceWorker !== false)) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js').catch(() => {}));
+    window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js',{updateViaCache:'none'}).catch(() => {}));
   }
 })();
 </script>

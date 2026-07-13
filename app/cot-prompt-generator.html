@@ -13,8 +13,8 @@
 
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-<script src="../config.js"></script>
-<script src="../assets/runtime.js"></script>
+<script src="../config.js?v=20260713.2"></script>
+<script src="../assets/runtime.js?v=20260713.2"></script>
 </head>
 <body>
 <header class="top"><div class="brand"><a class="home" href="../index.html">←</a><div class="mark">R</div><div><strong>Structured Reasoning Builder</strong><small>GPT‑5.6 ready · Reviewable rationale</small></div></div><div class="actions"><select id="lang" class="ctrl"><option value="ko">한국어</option><option value="ja">日本語</option><option value="en">English</option></select><button id="theme" class="ctrl">◐</button></div></header>
@@ -45,7 +45,7 @@ function toast(s){$('toast').textContent=s;$('toast').classList.add('show');clea
 <script>
 (() => {
   if ('serviceWorker' in navigator && location.protocol !== 'file:' && (!window.JKE_RUNTIME || window.JKE_RUNTIME.config.enableServiceWorker !== false)) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js').catch(() => {}));
+    window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js',{updateViaCache:'none'}).catch(() => {}));
   }
 })();
 </script>

@@ -6,6 +6,8 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%232563eb%27/%3E%3Ctext x=%2732%27 y=%2742%27 text-anchor=%27middle%27 font-size=%2732%27 fill=%27white%27%3EAI%3C/text%3E%3C/svg%3E">
   <meta name="color-scheme" content="light dark">
   <title>JKE AI Toolkit · GPT‑5.6</title>
+  <meta name="theme-color" content="#2563eb">
+  <link rel="manifest" href="manifest.webmanifest">
   <style>
     :root{--bg:#f6f7fb;--surface:rgba(255,255,255,.86);--surface-solid:#fff;--ink:#172033;--sub:#667085;--line:#e2e7ef;--blue:#2563eb;--blue2:#4f46e5;--violet:#7c3aed;--green:#059669;--amber:#d97706;--red:#dc2626;--shadow:0 20px 60px rgba(15,23,42,.10);--r:20px}
     [data-theme="dark"]{--bg:#0b1020;--surface:rgba(17,24,39,.82);--surface-solid:#111827;--ink:#eef2ff;--sub:#9aa5bb;--line:#263149;--blue:#60a5fa;--blue2:#818cf8;--violet:#a78bfa;--green:#34d399;--amber:#fbbf24;--red:#fb7185;--shadow:0 24px 70px rgba(0,0,0,.42)}
@@ -36,10 +38,19 @@
     <main class="grid" id="grid" aria-live="polite"></main>
     <footer><span>© 2026 JKE AI Toolkit · GPT‑5.6 refresh</span><span class="privacy"><i></i><span id="privacy"></span></span></footer>
   </div>
-<script src="config.js"></script>
-<script src="assets/runtime.js"></script>
+<script src="config.js?v=20260713.2"></script>
+<script src="assets/runtime.js?v=20260713.2"></script>
 <script>
-const APP_PREFIX=(()=>/\/app(?:\/|$)/i.test(location.pathname.replace(/\\/g,'/'))?'':'app/')();
+const RUNTIME=window.JKE_RUNTIME||{
+  environment:{label:location.protocol==='file:'?'LOCAL FILE':'STATIC WEB'},
+  config:{enableServiceWorker:true}
+};
+const STORE=RUNTIME.storage||window.JKE_STORAGE||{
+  get(_key,fallback=null){return fallback},
+  set(){return false},
+  remove(){return false}
+};
+const APP_PREFIX='app/';
 const meta=[
  {id:'template',file:'prompt-template-generator.html',emoji:'🧩',c:'#2563eb'},
  {id:'library',file:'prompt_lib.html',emoji:'📚',c:'#059669'},
@@ -68,12 +79,13 @@ const I={
  fr:{eyebrow:'2026.07 · Hub IA interne',title:'Outils pratiques pour l’ère <span class="gradient">GPT‑5.6</span>',lead:'Les doublons ont été supprimés. Prompting, RAG, Copilot multimodal, Azure OpenAI, amélioration de prompts et inspection NVIDIA partagent une structure unique.',search:'Rechercher outils, descriptions ou tags…',count:'{n} outils',tools:'outils intégrés',privacy:'Les outils principaux restent locaux · amélioration/inspection envoient seulement lors de l’exécution',none:'Aucun résultat.',apps:[['Générateur de modèles','Frameworks structurés et vérification GPT‑5.6.',['GPT‑5.6','frameworks','multilingue']],['Bibliothèque de prompts','Catégories, variables, favoris, recherche et sauvegarde locale.',['bibliothèque','local','UI']],['Guide Azure OpenAI','Modèles jusqu’à GPT‑5.1, sécurité, fichiers et API.',['Azure','GPT‑5.1','entreprise']],['Guide Copilot GPT‑5.6','Atelier PDF/PPT/Excel/image et démo 3D interactive.',['Copilot','multimodal','3D']],['Raisonnement structuré','Preuves, hypothèses, vérifications et conclusion.',['raisonnement','vérification','GPT‑5.6']],['Studio RAG ingénierie','Requêtes, HyDE, citations, confiance et rapport.',['RAG','automobile','preuves']],['Assistant d’amélioration de prompts','Diagnostique une consigne, crée des versions standard/rapide/profonde et permet un test API.',['amélioration','NVIDIA/OpenAI','15 exemples']],['Agent d’inspection IA','NVIDIA NIM/Llama Vision, validation humaine et export.',['NVIDIA NIM','Llama','qualité']]]},
  th:{eyebrow:'2026.07 · ศูนย์รวม AI ภายใน',title:'เครื่องมือทำงานยุค <span class="gradient">GPT‑5.6</span>',lead:'รวม Prompt, RAG, Copilot แบบมัลติโหมด, Azure OpenAI, การปรับปรุงพรอมต์ด้วย AI และการตรวจสอบคุณภาพ NVIDIA ไว้ในโครงสร้างเดียว',search:'ค้นหาเครื่องมือ คำอธิบาย หรือแท็ก…',count:'{n} เครื่องมือ',tools:'เครื่องมือรวม',privacy:'เครื่องมือหลักทำงานในเครื่อง · แอปปรับปรุง/ตรวจสอบส่งข้อมูลเมื่อสั่งรันเท่านั้น',none:'ไม่พบผลลัพธ์',apps:[['ตัวสร้างเทมเพลตพรอมต์','เฟรมเวิร์กแบบมีโครงสร้างและคำสั่งตรวจสอบ GPT‑5.6',['GPT‑5.6','framework','หลายภาษา']],['คลังพรอมต์','จัดการหมวดหมู่ ตัวแปร รายการโปรด ค้นหา และสำรองข้อมูล',['library','local','UI']],['คู่มือ Azure OpenAI','โมเดลถึง GPT‑5.1 ความปลอดภัย ไฟล์ และ API',['Azure','GPT‑5.1','องค์กร']],['คู่มือ Copilot GPT‑5.6','เวิร์กเบนช์ PDF/PPT/Excel/รูปภาพ และเดโม 3D',['Copilot','multimodal','3D']],['ตัวสร้างเหตุผลแบบมีโครงสร้าง','หลักฐาน สมมติฐาน การตรวจสอบ และข้อสรุป',['reasoning','verify','GPT‑5.6']],['Engineering RAG Studio','query, HyDE, citation, confidence และรายงาน',['RAG','automotive','evidence']],['AI Prompt Refinement Assistant','วิเคราะห์คำสั่งหยาบ สร้างเวอร์ชันมาตรฐาน/เร็ว/ลึก และทดลองผ่าน API',['prompt refinement','NVIDIA/OpenAI','15 samples']],['AI Quality Inspection Agent','ตรวจภาพด้วย NVIDIA NIM/Llama Vision พร้อมอนุมัติและส่งออก',['NVIDIA NIM','Llama','quality']]]}
 };
-let lang=JKE_STORAGE.get('jke-toolkit-lang','ko');let query='';
+let lang=STORE.get('jke-toolkit-lang','ko');let query='';
 const $=id=>document.getElementById(id);const grid=$('grid');
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function render(){const t=I[lang]||I.en;const items=meta.map((m,i)=>({...m,title:t.apps[i][0],desc:t.apps[i][1],tags:t.apps[i][2]}));const q=query.trim().toLowerCase();const filtered=items.filter(x=>!q||[x.title,x.desc,...x.tags].join(' ').toLowerCase().includes(q));$('count').textContent=t.count.replace('{n}',filtered.length);grid.innerHTML=filtered.length?filtered.map((x,i)=>`<a class="card" style="--icon-color:${x.c};--icon-bg:${x.c}18;--glow:${x.c}16;animation-delay:${i*.04}s" href="${APP_PREFIX+x.file}"><div class="card-top"><div class="icon">${x.emoji}</div><span class="num">${String(meta.findIndex(m=>m.id===x.id)+1).padStart(2,'0')}</span></div><h2>${esc(x.title)}</h2><p class="desc">${esc(x.desc)}</p><div class="tags">${x.tags.map(v=>`<span class="tag">${esc(v)}</span>`).join('')}</div><span class="arrow">→</span></a>`).join(''):`<div class="empty">${t.none}</div>`}
-function apply(){const t=I[lang]||I.en;document.documentElement.lang=lang;document.title='JKE AI Toolkit · GPT‑5.6';$('lang').value=lang;$('eyebrow').textContent=t.eyebrow;$('title').innerHTML=t.title;$('lead').textContent=t.lead;$('search').placeholder=t.search;$('toolCountLabel').textContent=t.tools;$('privacy').textContent=t.privacy;JKE_STORAGE.set('jke-toolkit-lang',lang);render()}
-$('lang').addEventListener('change',e=>{lang=e.target.value;apply()});$('search').addEventListener('input',e=>{query=e.target.value;render()});$('theme').addEventListener('click',()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;JKE_STORAGE.set('jke-toolkit-theme',next)});document.addEventListener('keydown',e=>{const tag=document.activeElement?.tagName||'';const editing=['INPUT','TEXTAREA','SELECT'].includes(tag)||document.activeElement?.isContentEditable;if(e.key==='/'&&!editing){e.preventDefault();$('search').focus()}if(/^[1-8]$/.test(e.key)&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!editing)location.href=APP_PREFIX+meta[Number(e.key)-1].file});document.documentElement.dataset.theme=JKE_STORAGE.get('jke-toolkit-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');$('runtimePill').textContent=JKE_RUNTIME.label;apply();
+function apply(){const t=I[lang]||I.en;document.documentElement.lang=lang;document.title='JKE AI Toolkit · GPT‑5.6';$('lang').value=lang;$('eyebrow').textContent=t.eyebrow;$('title').innerHTML=t.title;$('lead').textContent=t.lead;$('search').placeholder=t.search;$('toolCountLabel').textContent=t.tools;$('privacy').textContent=t.privacy;STORE.set('jke-toolkit-lang',lang);render()}
+$('lang').addEventListener('change',e=>{lang=e.target.value;apply()});$('search').addEventListener('input',e=>{query=e.target.value;render()});$('theme').addEventListener('click',()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;STORE.set('jke-toolkit-theme',next)});document.addEventListener('keydown',e=>{const tag=document.activeElement?.tagName||'';const editing=['INPUT','TEXTAREA','SELECT'].includes(tag)||document.activeElement?.isContentEditable;if(e.key==='/'&&!editing){e.preventDefault();$('search').focus()}if(/^[1-8]$/.test(e.key)&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!editing)location.href=APP_PREFIX+meta[Number(e.key)-1].file});document.documentElement.dataset.theme=STORE.get('jke-toolkit-theme')||((window.matchMedia?.('(prefers-color-scheme:dark)').matches)?'dark':'light');$('runtimePill').textContent=RUNTIME.environment?.label||RUNTIME.label||'STATIC';apply();
+if('serviceWorker' in navigator&&location.protocol!=='file:'&&RUNTIME.config?.enableServiceWorker!==false){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).catch(()=>{}));}
 </script>
 </body>
 </html>

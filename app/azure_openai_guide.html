@@ -11,8 +11,8 @@
 </style>
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-<script src="../config.js"></script>
-<script src="../assets/runtime.js"></script>
+<script src="../config.js?v=20260713.2"></script>
+<script src="../assets/runtime.js?v=20260713.2"></script>
 </head>
 <body><header class="top"><div class="brand"><a href="../index.html" class="home">←</a><div class="logo">Az</div><div><strong>Azure OpenAI Guide</strong><small>Company baseline · through GPT‑5.1</small></div></div><div class="actions"><select id="lang" class="ctrl"><option value="ko">KO</option><option value="ja">JA</option><option value="en">EN</option></select><button id="theme" class="ctrl">◐</button></div></header>
 <div class="shell"><section class="hero"><div><span class="tag" data-i="tag">기업용 배포·운용 가이드</span><h1 data-i="heroTitle">Azure OpenAI를<br><span style="color:var(--blue)">GPT‑5.1까지</span> 정확히 쓴다.</h1><p data-i="heroDesc">모델 이름보다 배포명, 지역 가용성, API 버전, 데이터 경로와 사람 검증이 중요합니다. 회사에서 승인된 범위를 GPT‑5.1까지로 두고, 문서·이미지·RAG 업무의 올바른 연결 구조를 정리했습니다.</p></div><aside class="cap"><small data-i="capSmall">COMPANY MODEL CEILING</small><strong>GPT‑5.1</strong><p data-i="capDesc">실제 배포 가능 여부는 Azure 구독, 지역, 승인된 모델 카탈로그와 관리자 설정을 확인하십시오.</p></aside></section>
@@ -32,7 +32,7 @@ else c=`curl -X POST \\\n  "${ep}/openai/deployments/${dep}/chat/completions?api
 <script>
 (() => {
   if ('serviceWorker' in navigator && location.protocol !== 'file:' && (!window.JKE_RUNTIME || window.JKE_RUNTIME.config.enableServiceWorker !== false)) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js').catch(() => {}));
+    window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js',{updateViaCache:'none'}).catch(() => {}));
   }
 })();
 </script>

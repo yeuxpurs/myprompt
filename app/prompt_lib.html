@@ -1094,8 +1094,8 @@
 
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-<script src="../config.js"></script>
-<script src="../assets/runtime.js"></script>
+<script src="../config.js?v=20260713.2"></script>
+<script src="../assets/runtime.js?v=20260713.2"></script>
 </head>
 <body>
   <!-- ═══ TOPBAR ═══ -->
@@ -2155,7 +2155,7 @@ importArea.addEventListener('drop', e => { if (e.dataTransfer.files.length > 0) 
 <script>
 (() => {
   if ('serviceWorker' in navigator && location.protocol !== 'file:' && (!window.JKE_RUNTIME || window.JKE_RUNTIME.config.enableServiceWorker !== false)) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js').catch(() => {}));
+    window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js',{updateViaCache:'none'}).catch(() => {}));
   }
 })();
 </script>

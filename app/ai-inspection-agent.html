@@ -15,8 +15,8 @@
 
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-<script src="../config.js"></script>
-<script src="../assets/runtime.js"></script>
+<script src="../config.js?v=20260713.2"></script>
+<script src="../assets/runtime.js?v=20260713.2"></script>
 </head>
 <body>
 <header class="topbar"><div class="brand"><a href="../index.html" title="Home">←</a><div class="brand-mark">AI</div><div><strong>Quality Inspection Agent</strong><small>NVIDIA NIM · Human-in-the-loop</small></div></div><div class="top-actions"><button class="icon-btn" id="langBtn">KO</button><button class="icon-btn" id="themeBtn">◐</button></div></header>
@@ -148,7 +148,7 @@ document.documentElement.dataset.theme=localStorage.getItem('inspection-theme')|
 <script>
 (() => {
   if ('serviceWorker' in navigator && location.protocol !== 'file:' && (!window.JKE_RUNTIME || window.JKE_RUNTIME.config.enableServiceWorker !== false)) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js').catch(() => {}));
+    window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js',{updateViaCache:'none'}).catch(() => {}));
   }
 })();
 </script>

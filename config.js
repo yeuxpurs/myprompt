@@ -7,7 +7,7 @@
 window.JKE_CONFIG = Object.freeze({
   siteName: 'JKE AI Toolkit',
   gatewayBaseUrl: '',
-  localApiBaseUrl: 'http://localhost:8787',
+  localApiBaseUrl: 'http://127.0.0.1:8787',
   defaultMode: 'local',
   defaultProvider: 'nvidia',
   promptModel: 'meta/llama-4-maverick-17b-128e-instruct',

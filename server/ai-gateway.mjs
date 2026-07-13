@@ -200,13 +200,32 @@ function staticPathFor(pathname) {
   } catch {
     return null;
   }
+
   if (decoded === '/') decoded = '/index.html';
-  const allowed = decoded === '/index.html' || decoded === '/runtime-config.js' || decoded.startsWith('/app/');
-  if (!allowed || decoded.includes('\0')) return null;
+  if (decoded.includes('\0')) return null;
+
+  const publicFiles = new Set([
+    '/index.html',
+    '/config.js',
+    '/manifest.webmanifest',
+    '/offline.html',
+    '/robots.txt',
+    '/sw.js',
+    '/.nojekyll'
+  ]);
+  const isPublicPath = publicFiles.has(decoded)
+    || decoded.startsWith('/app/')
+    || decoded.startsWith('/assets/');
+  if (!isPublicPath) return null;
+
   const target = path.resolve(ROOT, `.${decoded}`);
-  if (target !== path.resolve(ROOT, 'index.html') && target !== path.resolve(ROOT, 'runtime-config.js') && !target.startsWith(path.resolve(ROOT, 'app') + path.sep)) {
-    return null;
-  }
+  const allowedRoots = [
+    path.resolve(ROOT, 'app') + path.sep,
+    path.resolve(ROOT, 'assets') + path.sep
+  ];
+  const isExactPublicFile = [...publicFiles].some(file => target === path.resolve(ROOT, `.${file}`));
+  const isUnderAllowedRoot = allowedRoots.some(prefix => target.startsWith(prefix));
+  if (!isExactPublicFile && !isUnderAllowedRoot) return null;
   return target;
 }
 
@@ -219,11 +238,11 @@ async function serveStatic(req, res, requestUrl) {
     if (!info.isFile()) return false;
     const data = await readFile(target);
     const type = MIME.get(path.extname(target).toLowerCase()) || 'application/octet-stream';
-    const isHtmlOrConfig = type.startsWith('text/html') || target.endsWith('runtime-config.js');
+    const noCache = type.startsWith('text/html') || target.endsWith('config.js') || target.endsWith('sw.js') || target.endsWith('manifest.webmanifest');
     res.writeHead(200, {
       'Content-Type': type,
       'Content-Length': data.length,
-      'Cache-Control': isHtmlOrConfig ? 'no-cache' : 'public, max-age=3600',
+      'Cache-Control': noCache ? 'no-cache' : 'public, max-age=3600',
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'no-referrer'
     });
