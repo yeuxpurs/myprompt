@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%232563eb%27/%3E%3Ctext x=%2732%27 y=%2742%27 text-anchor=%27middle%27 font-size=%2732%27 fill=%27white%27%3EAI%3C/text%3E%3C/svg%3E">
+<meta name="robots" content="noindex,nofollow,noarchive">
     <title>GPT-5.6 Prompt Template Generator · JKE AX Bridge</title>
     <style>
         :root {
@@ -741,6 +741,11 @@
             .tab-content:not(.active) { display: block; page-break-before: always; }
         }
     </style>
+
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<script src="../config.js"></script>
+<script src="../assets/runtime.js"></script>
 </head>
 <body>
 
@@ -971,8 +976,6 @@
 <div class="notification notification-success" id="copyNotification"><span>✓</span><span data-translate-key="copy_notification">クリップボードにコピーされました！</span></div>
 <div class="notification notification-warning" id="warningNotification"><span>!</span><span data-translate-key="copy_alert">コピーするプロンプトがありません</span></div>
 
-<script src="../runtime-config.js"></script>
-<script src="vendor/runtime.js"></script>
 <script>
     // ========================================================
     // THEME
@@ -1458,7 +1461,7 @@
             showNotification('warningNotification');
             return;
         }
-        JKE_COPY_TEXT(outputText).then(() => showNotification('copyNotification')).catch(err => console.error('Copy failed:', err));
+        navigator.clipboard.writeText(outputText).then(() => showNotification('copyNotification')).catch(err => console.error('Copy failed:', err));
     }
 
     function showNotification(id) {
@@ -1489,6 +1492,14 @@
         document.querySelectorAll('textarea').forEach(input => input.addEventListener('input', generatePrompt));
         selectLanguage('ja');
     });
+</script>
+
+<script>
+(() => {
+  if ('serviceWorker' in navigator && location.protocol !== 'file:' && (!window.JKE_RUNTIME || window.JKE_RUNTIME.config.enableServiceWorker !== false)) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js').catch(() => {}));
+  }
+})();
 </script>
 </body>
 </html>

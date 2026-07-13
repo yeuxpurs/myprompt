@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%232563eb%27/%3E%3Ctext x=%2732%27 y=%2742%27 text-anchor=%27middle%27 font-size=%2732%27 fill=%27white%27%3EAI%3C/text%3E%3C/svg%3E">
+<meta name="robots" content="noindex,nofollow,noarchive">
   <title data-i18n="appTitle">GPT-5.6 プロンプトライブラリ</title>
   <style>
     :root {
@@ -1091,6 +1091,11 @@
       margin-left: 4px;
     }
   </style>
+
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<script src="../config.js"></script>
+<script src="../assets/runtime.js"></script>
 </head>
 <body>
   <!-- ═══ TOPBAR ═══ -->
@@ -1206,8 +1211,6 @@
     </div>
   </div>
 
-<script src="../runtime-config.js"></script>
-<script src="vendor/runtime.js"></script>
 <script>
 /* ══════════════════════════════════════════════════
    GLOBAL STATE
@@ -1900,7 +1903,7 @@ function escapeRegex(str) { return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
 function copyPrompt(btn) {
   let text = btn.dataset.rawText ? unescapeHtml(btn.dataset.rawText) : '';
-  JKE_COPY_TEXT(text).then(() => {
+  navigator.clipboard.writeText(text).then(() => {
     btn.textContent = t('copyComplete');
     btn.classList.add('copied');
     setTimeout(() => { btn.textContent = t('copy'); btn.classList.remove('copied'); }, 1200);
@@ -2147,6 +2150,14 @@ const importArea = document.getElementById('importArea');
 ['dragleave','drop'].forEach(ev => { importArea.addEventListener(ev, () => importArea.classList.remove('dragover')); });
 importArea.addEventListener('drop', e => { if (e.dataTransfer.files.length > 0) processFile(e.dataTransfer.files[0]); });
 
+</script>
+
+<script>
+(() => {
+  if ('serviceWorker' in navigator && location.protocol !== 'file:' && (!window.JKE_RUNTIME || window.JKE_RUNTIME.config.enableServiceWorker !== false)) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js').catch(() => {}));
+  }
+})();
 </script>
 </body>
 </html>
