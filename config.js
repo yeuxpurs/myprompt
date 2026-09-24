@@ -10,8 +10,8 @@ window.JKE_CONFIG = Object.freeze({
   localApiBaseUrl: 'http://127.0.0.1:8787',
   defaultMode: 'local',
   defaultProvider: 'nvidia',
-  promptModel: 'meta/llama-4-maverick-17b-128e-instruct',
-  inspectionModel: 'meta/llama-4-maverick-17b-128e-instruct',
+  promptModel: 'z-ai/glm-5.3',
+  inspectionModel: 'z-ai/glm-5.3-flash',
   allowDirectApi: false,
   enableServiceWorker: true,
   repositoryUrl: ''

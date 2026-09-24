@@ -109,7 +109,7 @@ const presets=[
  {id:'vision',title:'이미지 검사 지시',desc:'관찰·판정·한계',task:'비전 검사 프롬프트',aud:'AI 검사 모델',rough:'이 사진 보고 불량인지 판단해줘. [사진]',format:'JSON',tone:'기술적·엄밀',context:'사진 기반 외관검사 PoC',constraints:'보이는 것만 판정하고 치수·내부결함 추정 금지',success:'판정, 신뢰도, 결함 위치, 근거, 재촬영 요구 포함'}
 ];
 const gatewayDefaults={
- nvidia:{endpoint:'https://integrate.api.nvidia.com/v1/chat/completions',model:'meta/llama-4-maverick-17b-128e-instruct'},
+ nvidia:{endpoint:'https://integrate.api.nvidia.com/v1/chat/completions',model:'z-ai/glm-5.3'},
  openai:{endpoint:'https://api.openai.com/v1/chat/completions',model:'gpt-5-mini'},
  azure:{endpoint:'',model:''}
 };
@@ -201,7 +201,7 @@ Rules: ${JSON.stringify(d.rules)}
 
 Make the standard refined prompt complete but not bloated. The quick prompt should be concise for low-risk everyday work. The deep prompt should add explicit analysis, evidence, alternatives, verification, and uncertainty handling without asking for hidden reasoning.`}
 const RUN_SYSTEM='Follow the supplied prompt. Provide only the user-facing result. Do not reveal hidden chain-of-thought. Clearly mark uncertainty and missing evidence.';
-function requestFor(kind,content){return kind==='refine'?{system:systemPrompt(),user:userMessage(content),temperature:.15,maxTokens:6000,json:true}:{system:RUN_SYSTEM,user:content,temperature:.3,maxTokens:4000}}
+function requestFor(kind,content){return kind==='refine'?{system:systemPrompt(),user:userMessage(content),temperature:.15,maxTokens:12000,json:true}:{system:RUN_SYSTEM,user:content,temperature:.3,maxTokens:8000}}
 async function callAI(kind,content,signal){
   const r=requestFor(kind,content);
   if(mode==='byok'){

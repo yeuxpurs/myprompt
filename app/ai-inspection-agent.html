@@ -43,7 +43,7 @@
 <h3 class="section-title">실행 모드</h3>
 <div class="config-box"><div class="seg" id="modeSeg"><button data-mode="sample" class="active" type="button">LOCAL SAMPLE</button><button data-mode="byok" type="button">🔑 내 API 키</button><button data-mode="gateway" type="button">회사 게이트웨이</button></div>
 <div id="byokBox" hidden></div>
-<div class="proxy-field" hidden><div class="field"><label for="gwModel">NVIDIA 모델</label><input class="input" id="gwModel" value="meta/llama-4-maverick-17b-128e-instruct" spellcheck="false"></div><div class="field"><label for="proxyEndpoint">AI gateway endpoint</label><input class="input" id="proxyEndpoint" placeholder="로컬: http://localhost:8787/api/inspect · 원격: https://gateway.example.com/api/inspect" spellcheck="false"></div></div>
+<div class="proxy-field" hidden><div class="field"><label for="gwModel">NVIDIA 모델</label><input class="input" id="gwModel" value="z-ai/glm-5.3-flash" spellcheck="false"></div><div class="field"><label for="proxyEndpoint">AI gateway endpoint</label><input class="input" id="proxyEndpoint" placeholder="로컬: http://localhost:8787/api/inspect · 원격: https://gateway.example.com/api/inspect" spellcheck="false"></div></div>
 <div class="hint" id="modeHint" style="margin-top:8px"></div></div>
 <div class="run-row"><button class="btn" id="sampleBtn" type="button">샘플 입력</button><button class="btn btn-primary" id="runBtn" type="button">◎ 샘플 결과 보기</button></div><div class="hint" style="margin-top:7px;text-align:right">단축키: Ctrl/⌘ + Enter</div>
 <div class="warning">⚠️ 본 도구는 PoC/보조 판정용입니다. 출하 승인, 안전 규격 적합, 법적 인증을 AI 단독으로 결정하지 마십시오. “내 API 키” 모드에서는 이미지가 선택한 AI 공급자로 전송되므로 기밀 도면·제품 사진은 회사 정책을 확인하세요.</div>
@@ -89,7 +89,7 @@ function renderThumbs(){$('thumbs').innerHTML=imageItems.map((x,i)=>`<div class=
 $('thumbs').addEventListener('click',e=>{const b=e.target.closest('button');if(b){imageItems.splice(Number(b.dataset.i),1);renderThumbs();return}const img=e.target.closest('img');if(img){const w=window.open();if(w){w.document.title=img.alt;w.document.body.style.cssText='margin:0;background:#111;display:grid;place-items:center;min-height:100vh';const el=w.document.createElement('img');el.src=img.src;el.style.maxWidth='100%';w.document.body.appendChild(el)}}});document.addEventListener('paste',e=>{const files=[...(e.clipboardData?.files||[])].filter(f=>f.type.startsWith('image/'));if(files.length){e.preventDefault();if(imageItems.length>=MAX_IMAGES)return toast(`이미지는 최대 ${MAX_IMAGES}장입니다`);addFiles(files);toast('클립보드 이미지를 추가했습니다')}});$('images').addEventListener('change',e=>addFiles(e.target.files));['dragenter','dragover'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.add('drag')}));['dragleave','drop'].forEach(ev=>$('drop').addEventListener(ev,e=>{$('drop').classList.remove('drag');if(ev==='drop'){e.preventDefault();addFiles(e.dataTransfer.files)}}));
 function buildUserText(){return `검사 ID: ${makeId()}\n프로젝트/품목: ${$('project').value||'(미입력)'}\nLot/Serial: ${$('lot').value||'(미입력)'}\n검사 유형: ${$('inspectionType').value}\n민감도: ${$('sensitivity').value}\n합격 기준:\n${$('criteria').value||'(기준 미입력 — REVIEW 필요)'}\n중점 결함: ${$('categories').value}\n현장 정보:\n${$('notes').value||'(없음)'}\n이미지 수: ${imageItems.length}\n각 기준별 PASS/FAIL/REVIEW와 이미지에서 관찰한 근거를 작성하라. 보이지 않는 치수는 추정하지 말고 REVIEW로 남겨라.`}
 function makeId(){return `INSP-${new Date().toISOString().replace(/[-:TZ.]/g,'').slice(0,14)}`}
-function gatewayPayload(userText){const model=$('gwModel').value.trim();const content=[{type:'text',text:userText},...imageItems.map(x=>({type:'image_url',image_url:{url:x.data}}))];return{model,messages:[{role:'system',content:systemPrompt},{role:'user',content}],temperature:.1,top_p:.25,max_tokens:3000,stream:false}}
+function gatewayPayload(userText){const model=$('gwModel').value.trim();const content=[{type:'text',text:userText},...imageItems.map(x=>({type:'image_url',image_url:{url:x.data}}))];return{model,messages:[{role:'system',content:systemPrompt},{role:'user',content}],temperature:.1,top_p:.25,max_tokens:8000,stream:false}}
 function sampleResult(){return{
   inspection_id:makeId(),overall_decision:'REVIEW',confidence:0,
   summary:'LOCAL SAMPLE 모드입니다. 브라우저에서 이미지 픽셀 분석이나 AI 판정을 수행하지 않았습니다. 아래 항목은 결과 화면·사람 승인·기록 흐름을 확인하기 위한 예시 구조일 뿐입니다.',
@@ -121,7 +121,7 @@ async function runInspection(){
       const userText=buildUserText();let text;
       if(mode==='byok'){
         if(!window.JKE_AI)throw new Error('ai-client.js를 불러오지 못했습니다. 페이지를 새로고침하세요.');
-        const out=await window.JKE_AI.chat({system:systemPrompt,user:userText,images:imageItems.map(x=>x.data),temperature:.1,maxTokens:3000,json:true,signal:aborter.signal});
+        const out=await window.JKE_AI.chat({system:systemPrompt,user:userText,images:imageItems.map(x=>x.data),temperature:.1,maxTokens:8000,json:true,signal:aborter.signal});
         text=out.text;model=out.model;
       }else{
         const typed=$('proxyEndpoint').value.trim();let url=typed;

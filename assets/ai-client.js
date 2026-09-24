@@ -69,8 +69,10 @@
       label: 'NVIDIA NIM (로컬 게이트웨이 경유)',
       style: 'openai',
       endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions',
-      model: 'meta/llama-4-maverick-17b-128e-instruct',
-      models: ['meta/llama-4-maverick-17b-128e-instruct', 'meta/llama-4-scout-17b-16e-instruct', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning'],
+      // Free-endpoint models on build.nvidia.com (checked 2026-09). The Llama 4 models were retired.
+      model: 'z-ai/glm-5.3-flash',
+      models: ['z-ai/glm-5.3-flash', 'moonshotai/kimi-k3', 'deepseek-ai/deepseek-v4.1-flash', 'z-ai/glm-5.3', 'meta/muse-glimmer-30b', 'nvidia/nemotron-3-ultra-550b-a55b'],
+      textOnly: ['z-ai/glm-5.3', 'nvidia/nemotron-3-ultra-550b-a55b'],
       keyHint: 'nvapi-...',
       keyUrl: 'https://build.nvidia.com/',
       vision: true,
@@ -253,9 +255,11 @@
       return (data?.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
     }
     const c = data?.choices?.[0]?.message?.content ?? data?.output_text ?? data?.content;
-    if (Array.isArray(c)) return c.map(x => x.text || x.content || '').join('\n');
-    if (c && typeof c === 'object') return c.text || JSON.stringify(c);
-    return c || '';
+    let text = Array.isArray(c) ? c.map(x => x.text || x.content || '').join('\n')
+      : c && typeof c === 'object' ? c.text || JSON.stringify(c) : c || '';
+    // Reasoning models (GLM, Kimi, DeepSeek...) may prepend <think>...</think> to the answer.
+    text = String(text).replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/^[\s\S]*?<\/think>/i, '').trim();
+    return text;
   }
 
   function friendlyError(status, text, c) {
@@ -328,7 +332,13 @@
     if (!res.ok) throw new Error(friendlyError(res.status, await res.text(), c));
     const data = await res.json();
     const text = extractText(c.provider, data);
-    if (!text) throw new Error('모델 응답 본문이 비어 있습니다.');
+    if (!text) {
+      const reasoning = data?.choices?.[0]?.message?.reasoning_content || data?.choices?.[0]?.message?.reasoning;
+      const cut = data?.choices?.[0]?.finish_reason === 'length';
+      throw new Error(reasoning || cut
+        ? '모델이 추론에 토큰을 모두 써서 최종 답이 비었습니다. 다시 시도하거나 더 빠른 모델(예: glm-5.3-flash, deepseek-v4.1-flash)을 선택하세요.'
+        : '모델 응답 본문이 비어 있습니다.');
+    }
     return {text, model: data?.model || c.model || c.provider, provider: c.provider, raw: data};
   }
 
@@ -438,7 +448,7 @@
       else if (isReady()) {
         kind = 'ok';
         text = `${c.def.label} · ${c.model || '배포 기본값'} 준비됨. 키는 ${settings.remember ? '이 브라우저(localStorage)' : '이 탭(세션)'}에만 보관되며 ${c.def.viaGateway ? '로컬 게이트웨이를 거쳐 NVIDIA' : c.def.label}로만 전송됩니다.`;
-        if (options.needsVision && !c.def.vision) { kind = 'warn'; text += ' 이 공급자는 이미지 입력을 지원하지 않을 수 있습니다.'; }
+        if (options.needsVision && (!c.def.vision || c.def.textOnly?.includes(c.model))) { kind = 'warn'; text += ' ⚠ 이 모델은 이미지 입력을 지원하지 않습니다. 비전 모델을 선택하세요.'; }
       } else {
         kind = 'warn';
         text = c.def.needsEndpoint && !c.endpoint ? '엔드포인트 주소를 입력하세요.' : !c.model && c.def.style !== 'azure' ? '모델 ID를 입력하세요.' : 'API 키를 붙여넣으면 바로 실행할 수 있습니다.';
