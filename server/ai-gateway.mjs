@@ -7,6 +7,7 @@
  *   POST /api/prompt-refine
  *   POST /api/prompt-run
  *   POST /api/inspect
+ *   POST /api/chat          (BYOK: browser sends its own key in X-Provider-Key)
  *
  * Optional local all-in-one mode:
  *   SERVE_STATIC=1 node server/ai-gateway.mjs
@@ -28,7 +29,10 @@ const SERVE_STATIC = /^(1|true|yes)$/i.test(String(process.env.SERVE_STATIC || '
 const MAX_BODY_BYTES = Number(process.env.MAX_BODY_BYTES || 25_000_000);
 const UPSTREAM_TIMEOUT_MS = Number(process.env.UPSTREAM_TIMEOUT_MS || 180_000);
 const GATEWAY_TOKEN = String(process.env.GATEWAY_TOKEN || '');
-const ROUTES = new Set(['/api/prompt-refine', '/api/prompt-run', '/api/inspect']);
+const ROUTES = new Set(['/api/prompt-refine', '/api/prompt-run', '/api/inspect', '/api/chat']);
+// Allow a user-supplied provider key (X-Provider-Key) to be forwarded upstream.
+// Enabled by default so a personal key pasted in the UI works with the local gateway.
+const ALLOW_CLIENT_KEYS = !/^(0|false|no)$/i.test(String(process.env.ALLOW_CLIENT_KEYS || '1'));
 const DEFAULTS = {
   nvidia: 'https://integrate.api.nvidia.com/v1/chat/completions',
   openai: 'https://api.openai.com/v1/chat/completions'
@@ -61,7 +65,7 @@ function corsFor(req) {
 function setCommonHeaders(res, cors) {
   res.setHeader('Access-Control-Allow-Origin', cors.origin);
   res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Gateway-Token');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Gateway-Token, X-Provider-Key');
   res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS');
   res.setHeader('Access-Control-Max-Age', '86400');
   res.setHeader('Cache-Control', 'no-store');
@@ -108,10 +112,13 @@ function validateEndpoint(provider, endpoint) {
   return url.toString();
 }
 
-function authFor(provider) {
+function authFor(provider, clientKey) {
+  if (clientKey && ALLOW_CLIENT_KEYS) {
+    return provider === 'azure' ? {'api-key': clientKey} : {Authorization: `Bearer ${clientKey}`};
+  }
   if (provider === 'nvidia') {
     const key = process.env.NVIDIA_API_KEY;
-    if (!key) throw new Error('NVIDIA_API_KEY is not set on the gateway');
+    if (!key) throw new Error('NVIDIA_API_KEY is not set on the gateway. Paste your key in the UI or set the env var.');
     return {Authorization: `Bearer ${key}`};
   }
   if (provider === 'openai') {
@@ -145,7 +152,7 @@ async function readJsonBody(req) {
   }
 }
 
-async function forwardChat(body) {
+async function forwardChat(body, clientKey) {
   const provider = normalizeProvider(body.provider);
   const endpoint = validateEndpoint(provider, String(body.endpoint || DEFAULTS[provider] || ''));
   const payload = body.payload;
@@ -159,7 +166,7 @@ async function forwardChat(body) {
   try {
     const upstream = await fetch(endpoint, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json', ...authFor(provider)},
+      headers: {'Content-Type': 'application/json', ...authFor(provider, clientKey)},
       body: JSON.stringify(payload),
       signal: controller.signal
     });
@@ -271,6 +278,7 @@ const server = http.createServer(async (req, res) => {
         ok: true,
         service: 'JKE AI Gateway',
         static_site: SERVE_STATIC,
+        client_keys: ALLOW_CLIENT_KEYS,
         providers: {
           nvidia: Boolean(process.env.NVIDIA_API_KEY),
           openai: Boolean(process.env.OPENAI_API_KEY),
@@ -285,7 +293,8 @@ const server = http.createServer(async (req, res) => {
 
     try {
       const body = await readJsonBody(req);
-      const upstream = await forwardChat(body);
+      const clientKey = String(req.headers['x-provider-key'] || '').trim();
+      const upstream = await forwardChat(body, clientKey);
       setCommonHeaders(res, cors);
       res.writeHead(upstream.status, {'Content-Type': upstream.contentType});
       return res.end(upstream.text);
@@ -305,5 +314,6 @@ server.listen(PORT, HOST, () => {
   console.log(`Static site: ${SERVE_STATIC ? `http://${HOST}:${PORT}/` : 'disabled'}`);
   console.log(`Allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
   console.log(`Gateway token: ${GATEWAY_TOKEN ? 'required' : 'not set'}`);
+  console.log(`User-supplied API keys (X-Provider-Key): ${ALLOW_CLIENT_KEYS ? 'allowed' : 'disabled'}`);
   console.log(`Routes: GET /health, ${[...ROUTES].join(', ')}`);
 });

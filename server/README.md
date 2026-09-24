@@ -55,6 +55,7 @@ NVIDIA_API_KEY=<secret>
 | `GATEWAY_TOKEN` | 선택형 `X-Gateway-Token` 접근 토큰 |
 | `MAX_BODY_BYTES` | 최대 요청 크기, 기본 25 MB |
 | `UPSTREAM_TIMEOUT_MS` | 공급자 API 타임아웃, 기본 180초 |
+| `ALLOW_CLIENT_KEYS` | 기본 `1`. 사용자가 UI에 붙여넣은 키(`X-Provider-Key`)를 허용된 공급자 호스트로만 전달. `0`이면 서버 키만 사용 |
 
 ## 경로
 
@@ -63,11 +64,12 @@ GET  /health
 POST /api/prompt-refine
 POST /api/prompt-run
 POST /api/inspect
+POST /api/chat     # 브라우저가 X-Provider-Key 헤더로 사용자 키를 전달(BYOK)
 ```
 
 ## 보호 범위
 
-- 브라우저에 공급자 API 키를 전달하지 않습니다.
+- 서버 키는 브라우저에 전달하지 않습니다. 사용자 키(`X-Provider-Key`)는 로그에 남기지 않고 허용된 공급자 호스트로만 전달합니다.
 - 허용된 Origin만 CORS 응답을 받습니다.
 - 선택한 경우 `X-Gateway-Token`을 요구합니다.
 - NVIDIA, OpenAI, Azure OpenAI의 허용된 HTTPS 호스트로만 전달합니다.
