@@ -1,0 +1,12 @@
+{
+  "name": "myprompt",
+  "version": "2.0.0",
+  "private": true,
+  "description": "A multilingual browser prompt workspace with no build step or runtime dependencies.",
+  "scripts": {
+    "start": "node server/serve.mjs",
+    "test": "node --test tests/*.cjs && node tools/check-inline-js.mjs && node tools/smoke-index.mjs",
+    "check:static": "python3 tools/check-static.py"
+  },
+  "engines": { "node": ">=20" }
+}
