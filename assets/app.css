@@ -1589,3 +1589,173 @@ html[lang="ko"] h2,
 html[lang="ko"] h3 {
   word-break: keep-all;
 }
+/* Flexible prompt metadata editing */
+.card-controls {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.quick-edit {
+  width: 30px;
+  min-height: 30px;
+  color: var(--muted);
+}
+.quick-edit svg {
+  width: 16px;
+  height: 16px;
+}
+.prompt-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+  margin: 0 0 14px;
+}
+.prompt-tag {
+  display: inline-block;
+  min-height: 26px;
+  padding: 4px 8px;
+  background: #f0f5ef;
+  border: 1px solid #e4ece1;
+  border-radius: 6px;
+  color: #517044;
+  font-size: 10px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  text-align: left;
+}
+.prompt-tag:hover {
+  background: #e4efde;
+}
+.tag-filter-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 15px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.tag-filter-row select {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+  color: var(--text);
+  font-size: 11px;
+  min-height: 34px;
+  padding: 6px 26px 6px 10px;
+  max-width: 240px;
+}
+.tag-filter-row .btn {
+  font-size: 10px;
+  min-height: 30px;
+  padding: 4px 9px;
+}
+.tag-filter-row button[hidden] {
+  display: none;
+}
+.detail-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.detail-metadata .tag {
+  margin-top: 2px;
+}
+.detail-metadata .prompt-tags {
+  margin-bottom: 0;
+}
+.tag-editor {
+  border: 1px solid #d8e1d9;
+  border-radius: 9px;
+  padding: 12px;
+  background: #fcfdfb;
+}
+.editable-tags {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  min-height: 28px;
+  margin-bottom: 10px;
+}
+.editable-tag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border: 1px solid #cdddc6;
+  border-radius: 7px;
+  background: #edf4e7;
+  color: #3b6941;
+}
+.editable-tag.editing {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.editable-tag button {
+  min-height: 34px;
+  padding: 6px 9px;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  text-align: left;
+  min-width: 0;
+}
+.editable-tag button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+.editable-tag button:last-child {
+  flex-shrink: 0;
+  padding: 6px;
+  min-width: 29px;
+  border-left: 1px solid #d7e5ce;
+  border-radius: 0 6px 6px 0;
+}
+.editable-tag button:hover {
+  background: #dfead7;
+}
+.editable-tag svg {
+  width: 13px;
+  height: 13px;
+}
+.tag-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.tag-input-row input {
+  min-width: 0;
+  flex: 1;
+}
+.tag-input-row .btn {
+  flex-shrink: 0;
+}
+.tag-input-row [hidden] {
+  display: none;
+}
+#tag-edit-status {
+  min-height: 20px;
+}
+@media (max-width: 560px) {
+  .tag-input-row {
+    flex-wrap: wrap;
+  }
+  .tag-input-row input {
+    flex-basis: 100%;
+  }
+  .editable-tag button {
+    min-height: 40px;
+  }
+  .tag-filter-row {
+    gap: 8px;
+  }
+  .tag-filter-row select {
+    max-width: 200px;
+  }
+  .prompt-tag {
+    font-size: 11px;
+    min-height: 30px;
+  }
+}

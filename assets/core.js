@@ -60,6 +60,42 @@
     if (typeof value !== 'string' || value.length > 40 || !/^\d{4}-\d\d-\d\dT/.test(value) || !Number.isFinite(Date.parse(value))) throw fail(name + ' must be an ISO date.');
     return new Date(value).toISOString();
   }
+  function tagIdentity(tag) {
+    if (typeof tag !== 'string') throw fail('Tags must contain text.', 'INVALID_TAGS');
+    // Locale-independent matching keeps stored tags consistent across UI languages.
+    return tag.trim().normalize('NFKC').toLowerCase();
+  }
+  function normalizeTags(input) {
+    var pieces;
+    if (typeof input === 'string') pieces = input.split(/[,\uFF0C\u3001\r\n]+/);
+    else if (Array.isArray(input)) pieces = input;
+    else throw fail('Tags must be text or an array of strings.', 'INVALID_TAGS');
+    var result = [];
+    var seen = new Set();
+    for (var i = 0; i < pieces.length; i += 1) {
+      var piece = pieces[i];
+      if (typeof piece !== 'string') throw fail('Tags must contain text.', 'INVALID_TAGS');
+      if (/[\u0000-\u001f\u007f-\u009f]/.test(piece)) throw fail('Tags contain unsupported control characters.', 'INVALID_TAGS');
+      var tag = piece.trim();
+      if (!tag) continue;
+      if (tag.length > LIMITS.tag) throw fail('Tags cannot exceed ' + LIMITS.tag + ' characters.', 'INVALID_TAGS');
+      var identity = tagIdentity(tag);
+      if (!seen.has(identity)) {
+        seen.add(identity);
+        result.push(tag);
+        if (result.length > LIMITS.tags) throw fail('Use up to ' + LIMITS.tags + ' tags.', 'INVALID_TAGS');
+      }
+    }
+    return result;
+  }
+  function renameTag(tags, index, newName) {
+    if (!Array.isArray(tags) || !Number.isInteger(index) || index < 0 || index >= tags.length) throw fail('Choose a valid tag to rename.', 'INVALID_TAGS');
+    if (typeof newName !== 'string' || !newName.trim()) throw fail('Tag name is required.', 'INVALID_TAGS');
+    var replacement = normalizeTags([newName]);
+    var result = tags.slice();
+    result[index] = replacement[0];
+    return normalizeTags(result);
+  }
   function validatePrompt(input) {
     var value = record(input, 'Prompt');
     var id = field(value, 'id');
@@ -67,8 +103,8 @@
     if (!validId(id)) throw fail('Prompt id is invalid.');
     var tagInput = field(value, 'tags');
     if (tagInput === undefined) tagInput = [];
-    if (!Array.isArray(tagInput) || tagInput.length > LIMITS.tags) throw fail('Tags must be an array of up to ' + LIMITS.tags + ' strings.');
-    var tags = Array.from(new Set(tagInput.map(function (tag) { return string(tag, 'Tag', LIMITS.tag, true); })));
+    if (!Array.isArray(tagInput)) throw fail('Tags must be an array of strings.', 'INVALID_TAGS');
+    var tags = normalizeTags(tagInput);
     var createdAt = date(field(value, 'createdAt'), new Date().toISOString(), 'createdAt');
     var updatedAt = date(field(value, 'updatedAt'), createdAt, 'updatedAt');
     return {
@@ -314,6 +350,7 @@
   return Object.freeze({
     languages: languages, limits: LIMITS, storageKey: KEY,
     extractVariables: extractVariables, fillVariables: fillVariables,
+    tagIdentity: tagIdentity, normalizeTags: normalizeTags, renameTag: renameTag,
     validatePrompt: validatePrompt, parseImport: parseImport,
     mergePrompts: mergePrompts, mergeImport: mergeImport, createStore: createStore
   });

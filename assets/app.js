@@ -10,7 +10,12 @@
   let route = readRoute();
   let category =
     new URLSearchParams(location.hash.split("?")[1] || "").get("category") ||
-    "all";
+    "";
+  let tagFilter = "",
+    editorTags = [],
+    editingTagIndex = null,
+    editorCategory = "",
+    editorCategoryDisplay = "";
   let query = "",
     sort = "recommended",
     selected = null,
@@ -62,7 +67,7 @@
       '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18"/>',
   };
   function icon(name) {
-    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.writing}</svg>`;
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${Object.hasOwn(paths, name) ? paths[name] : paths.writing}</svg>`;
   }
   function escape(value = "") {
     return String(value).replace(
@@ -115,6 +120,34 @@
   }
   function categoryName(value) {
     return categories.includes(value) ? t(value) : value || t("custom");
+  }
+  function categoryOptions() {
+    return [
+      ...new Set([
+        ...categories,
+        ...state.prompts.map((p) => p.category).filter(Boolean),
+      ]),
+    ];
+  }
+  function tagOptions() {
+    const unique = new Map();
+    for (const p of items())
+      for (const tag of p.tags || []) {
+        const key = core.tagIdentity(tag);
+        if (!unique.has(key)) unique.set(key, tag);
+      }
+    return [...unique.entries()].sort((a, b) =>
+      a[1].localeCompare(b[1], language),
+    );
+  }
+  function tagChips(tags, clickable = false) {
+    return `<div class="prompt-tags">${(tags || [])
+      .map((tag) =>
+        clickable
+          ? `<button class="prompt-tag" data-filter-tag="${escape(tag)}" aria-label="${escape(t("filterTag"))}: ${escape(tag)}">#${escape(tag)}</button>`
+          : `<span class="prompt-tag">#${escape(tag)}</span>`,
+      )
+      .join("")}</div>`;
   }
   function persist() {
     state.language = language;
@@ -174,6 +207,9 @@
       page.innerHTML = guidePage();
       return;
     }
+    if (tagFilter && !tagOptions().some(([key]) => key === tagFilter))
+      tagFilter = "";
+    if (category && !categoryOptions().includes(category)) category = "";
     const home = route === "home";
     const titles = {
       library: ["libraryTitle", "libraryDescription"],
@@ -185,8 +221,15 @@
       "beforeend",
       `${home ? `<div class="section-head"><div><h2>${escape(t("featured"))}</h2><p>${escape(t("featuredDescription"))}</p></div><a href="#library">${escape(t("viewAll"))}${icon("arrow")}</a></div>` : ""}
       <div class="tools-row"><div class="search-box">${icon("search")}<input id="search" type="search" aria-label="${escape(t("searchPlaceholder"))}" placeholder="${escape(t("searchPlaceholder"))}" value="${escape(query)}" autocomplete="off"><kbd aria-hidden="true">/</kbd></div>${home ? "" : `<button class="btn primary" data-action="new">${icon("plus")}${escape(t("addPrompt"))}</button>`}</div>
-      <div class="filters" role="group" aria-label="${escape(t("categoryLabel"))}">${["all", ...categories].map((cat) => `<button class="filter ${category === cat ? "active" : ""}" data-category="${cat}" aria-pressed="${category === cat}">${escape(t(cat))}</button>`).join("")}</div>
-      <div class="result-meta"><span id="result-count" role="status"></span><select class="sort" id="sort" aria-label="${escape(t("sortLabel"))}"><option value="recommended" ${sort === "recommended" ? "selected" : ""}>${escape(t("sortRecommended"))}</option><option value="newest" ${sort === "newest" ? "selected" : ""}>${escape(t("sortNewest"))}</option></select></div><div class="prompt-grid" id="prompt-grid"></div>`,
+      <div class="filters" role="group" aria-label="${escape(t("categoryLabel"))}">${["", ...categoryOptions()].map((cat) => `<button class="filter ${category === cat ? "active" : ""}" data-category="${escape(cat)}" aria-pressed="${category === cat}">${escape(cat ? categoryName(cat) : t("all"))}</button>`).join("")}</div>
+      <div class="tag-filter-row"><label for="tag-filter">${escape(t("filterTag"))}</label><select id="tag-filter"><option value="">${escape(t("allTags"))}</option>${tagOptions()
+        .map(
+          ([key, label]) =>
+            `<option value="${escape(key)}" ${tagFilter === key ? "selected" : ""}>${escape(label)}</option>`,
+        )
+        .join(
+          "",
+        )}</select><button class="btn quiet" data-action="clear-tag-filter" ${tagFilter ? "" : "hidden"}>${escape(t("clearTagFilter"))}</button></div><div class="result-meta"><span id="result-count" role="status"></span><select class="sort" id="sort" aria-label="${escape(t("sortLabel"))}"><option value="recommended" ${sort === "recommended" ? "selected" : ""}>${escape(t("sortRecommended"))}</option><option value="newest" ${sort === "newest" ? "selected" : ""}>${escape(t("sortNewest"))}</option></select></div><div class="prompt-grid" id="prompt-grid"></div>`,
     );
     renderGrid();
   }
@@ -199,7 +242,11 @@
     if (route === "my") list = list.filter((p) => !p.builtIn);
     if (route === "favorites")
       list = list.filter((p) => state.favorites.includes(p.id));
-    if (category !== "all") list = list.filter((p) => p.category === category);
+    if (category) list = list.filter((p) => p.category === category);
+    if (tagFilter)
+      list = list.filter((p) =>
+        (p.tags || []).some((tag) => core.tagIdentity(tag) === tagFilter),
+      );
     const needle = query.trim().toLocaleLowerCase(language);
     if (needle)
       list = list.filter((p) =>
@@ -231,7 +278,7 @@
   }
   function card(p) {
     const favorite = state.favorites.includes(p.id);
-    return `<article class="prompt-card"><div class="card-top"><span class="category-icon ${categories.includes(p.category) ? p.category : ""}">${icon(p.category)}</span><button class="favorite-button" data-favorite="${escape(p.id)}" aria-label="${escape(t(favorite ? "unfavorite" : "favorite"))}: ${escape(p.title)}" aria-pressed="${favorite}">${icon("star")}</button></div><h3><button class="card-title" data-open="${escape(p.id)}">${escape(p.title)}</button></h3><p class="card-description">${escape(p.description || p.body.slice(0, 120))}</p><div class="card-bottom"><span class="tag">${escape(categoryName(p.category))} · ${escape(t(p.builtIn ? "curated" : "custom"))}</span><button data-open="${escape(p.id)}">${escape(t("usePrompt"))}${icon("arrow")}</button></div></article>`;
+    return `<article class="prompt-card"><div class="card-top"><span class="category-icon ${categories.includes(p.category) ? p.category : ""}">${icon(p.category)}</span><div class="card-controls"><button class="icon-button quick-edit" data-edit-prompt="${escape(p.id)}" aria-label="${escape(t(p.builtIn ? "editCopy" : "edit"))}: ${escape(p.title)}">${icon("studio")}</button><button class="favorite-button" data-favorite="${escape(p.id)}" aria-label="${escape(t(favorite ? "unfavorite" : "favorite"))}: ${escape(p.title)}" aria-pressed="${favorite}">${icon("star")}</button></div></div><h3><button class="card-title" data-open="${escape(p.id)}">${escape(p.title)}</button></h3><p class="card-description">${escape(p.description || p.body.slice(0, 120))}</p>${tagChips(p.tags, true)}<div class="card-bottom"><span class="tag">${escape(categoryName(p.category))} · ${escape(t(p.builtIn ? "curated" : "custom"))}</span><button data-open="${escape(p.id)}">${escape(t("usePrompt"))}${icon("arrow")}</button></div></article>`;
   }
   function workflowsPage() {
     return (
@@ -274,7 +321,7 @@
     const names = core.extractVariables(selected.body);
     openDialog(
       dialogHeader(selected.title, selected.description) +
-        `<div class="dialog-content"><div class="detail-grid ${names.length ? "" : "single"}">${names.length ? `<section><p class="field-label">${escape(t("variables"))}</p><p class="hint" style="margin:8px 0 20px">${escape(t("detailHint"))}</p>${names.map((name, index) => `<div class="field"><label for="var-${index}">${escape(name)}</label><textarea id="var-${index}" data-variable="${escape(name)}" placeholder="${escape(t("variablePlaceholder", { name }))}" maxlength="100000" rows="2"></textarea></div>`).join("")}</section>` : ""}<section><p class="field-label">${escape(t("preview"))}</p><pre class="preview-text" id="detail-preview"></pre><p id="unresolved" class="unresolved"></p><div class="detail-actions"><button class="btn primary" data-action="copy-detail">${icon("copy")}${escape(t("copy"))}</button><a class="btn" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">${escape(t("openChatGPT"))} ↗</a></div><p class="privacy-hint">${escape(t("handoffHint"))}</p></section></div><div id="delete-confirm"></div></div><footer class="dialog-actions"><button class="btn quiet push-left" data-action="edit">${icon("studio")}${escape(t(selected.builtIn ? "duplicate" : "edit"))}</button>${!selected.builtIn ? `<button class="btn quiet danger" data-action="delete">${escape(t("delete"))}</button>` : ""}<button class="btn" data-action="duplicate">${icon("plus")}${escape(t("duplicate"))}</button><button class="btn" data-action="close">${escape(t("close"))}</button></footer>`,
+        `<div class="dialog-content"><div class="detail-metadata"><span class="tag">${escape(categoryName(selected.category))}</span>${tagChips(selected.tags)}</div><div class="detail-grid ${names.length ? "" : "single"}">${names.length ? `<section><p class="field-label">${escape(t("variables"))}</p><p class="hint" style="margin:8px 0 20px">${escape(t("detailHint"))}</p>${names.map((name, index) => `<div class="field"><label for="var-${index}">${escape(name)}</label><textarea id="var-${index}" data-variable="${escape(name)}" placeholder="${escape(t("variablePlaceholder", { name }))}" maxlength="100000" rows="2"></textarea></div>`).join("")}</section>` : ""}<section><p class="field-label">${escape(t("preview"))}</p><pre class="preview-text" id="detail-preview"></pre><p id="unresolved" class="unresolved"></p><div class="detail-actions"><button class="btn primary" data-action="copy-detail">${icon("copy")}${escape(t("copy"))}</button><a class="btn" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">${escape(t("openChatGPT"))} ↗</a></div><p class="privacy-hint">${escape(t("handoffHint"))}</p></section></div><div id="delete-confirm"></div></div><footer class="dialog-actions"><button class="btn quiet push-left" data-action="edit">${icon("studio")}${escape(t(selected.builtIn ? "editCopy" : "edit"))}</button>${!selected.builtIn ? `<button class="btn quiet danger" data-action="delete">${escape(t("delete"))}</button>` : ""}<button class="btn" data-action="duplicate">${icon("plus")}${escape(t("duplicate"))}</button><button class="btn" data-action="close">${escape(t("close"))}</button></footer>`,
     );
     updateDetail();
   }
@@ -295,27 +342,112 @@
       tags: [],
     };
     editorId = source && !source.builtIn && !duplicate ? source.id : null;
-    const catOptions = [...categories];
-    if (p.category && !catOptions.includes(p.category))
-      catOptions.push(p.category);
+    editorCategory = p.category || "";
+    editorCategoryDisplay = editorCategory ? categoryName(editorCategory) : "";
+    editorTags = [...(p.tags || [])];
+    editingTagIndex = null;
+    const catOptions = [
+      ...new Set([...categoryOptions(), p.category].filter(Boolean)),
+    ];
     openDialog(
-      dialogHeader(t(editorId ? "editTitle" : "newTitle"), t("variablesHint")) +
-        `<form id="editor-form"><div class="dialog-content"><div class="field"><label for="edit-title">${escape(t("titleLabel"))}</label><input id="edit-title" name="title" value="${escape(p.title)}" placeholder="${escape(t("titlePlaceholder"))}" maxlength="160" required></div><div class="field"><label for="edit-description">${escape(t("descriptionLabel"))}</label><input id="edit-description" name="description" value="${escape(p.description)}" placeholder="${escape(t("descriptionPlaceholder"))}" maxlength="2000"></div><div class="field-row"><div class="field"><label for="edit-category">${escape(t("categoryLabel"))}</label><select id="edit-category" name="category">${catOptions.map((cat) => `<option value="${escape(cat)}" ${p.category === cat ? "selected" : ""}>${escape(categoryName(cat))}</option>`).join("")}</select></div><div class="field"><label for="edit-tags">${escape(t("tagsLabel"))}</label><input id="edit-tags" name="tags" value="${escape((p.tags || []).join(", "))}" placeholder="${escape(t("tagsPlaceholder"))}" maxlength="1000"></div></div><div class="field"><label for="edit-body">${escape(t("bodyLabel"))}</label><textarea class="code" id="edit-body" name="body" placeholder="${escape(t("bodyPlaceholder"))}" maxlength="100000" required>${escape(p.body)}</textarea><span class="hint">${escape(t("variablesHint"))}</span></div><p class="error-text" id="editor-error" role="alert"></p></div><footer class="dialog-actions"><button class="btn" type="button" data-action="close">${escape(t("cancel"))}</button><button class="btn primary" type="submit">${icon("check")}${escape(t("save"))}</button></footer></form>`,
+      dialogHeader(
+        t(source?.builtIn ? "editCopy" : editorId ? "editTitle" : "newTitle"),
+        t(source?.builtIn ? "editCopyHint" : "variablesHint"),
+      ) +
+        `<form id="editor-form"><div class="dialog-content">
+      <div class="field"><label for="edit-title">${escape(t("titleLabel"))}</label><input id="edit-title" name="title" value="${escape(p.title)}" placeholder="${escape(t("titlePlaceholder"))}" maxlength="160" required></div>
+      <div class="field"><label for="edit-description">${escape(t("descriptionLabel"))}</label><input id="edit-description" name="description" value="${escape(p.description)}" placeholder="${escape(t("descriptionPlaceholder"))}" maxlength="2000"></div>
+      <div class="field"><label for="edit-category">${escape(t("categoryLabel"))}</label><input id="edit-category" name="category" list="category-options" value="${escape(editorCategoryDisplay)}" placeholder="${escape(t("categoryPlaceholder"))}" maxlength="100" aria-describedby="category-hint"><datalist id="category-options">${catOptions.map((cat) => `<option value="${escape(categoryName(cat))}"></option>`).join("")}</datalist><span class="hint" id="category-hint">${escape(t("categoryHint"))}</span></div>
+      <div class="field"><label for="edit-tags">${escape(t("tagsLabel"))}</label><div class="tag-editor" id="tag-editor"><div id="editable-tags" class="editable-tags"></div><div class="tag-input-row"><input id="edit-tags" placeholder="${escape(t("tagInputPlaceholder"))}" aria-describedby="tags-hint tag-edit-status" autocomplete="off" list="tag-suggestions" maxlength="2000"><button class="btn" type="button" data-action="commit-tag">${escape(t("addTag"))}</button><button class="icon-button" type="button" data-action="cancel-tag-edit" aria-label="${escape(t("cancelTagEdit"))}" hidden>${icon("close")}</button></div></div><datalist id="tag-suggestions">${tagOptions()
+        .map(([, tag]) => `<option value="${escape(tag)}"></option>`)
+        .join(
+          "",
+        )}</datalist><span class="hint" id="tags-hint">${escape(t("tagsHint"))}</span><span class="hint" id="tag-edit-status" role="status"></span></div>
+      <div class="field"><label for="edit-body">${escape(t("bodyLabel"))}</label><textarea class="code" id="edit-body" name="body" placeholder="${escape(t("bodyPlaceholder"))}" maxlength="100000" required>${escape(p.body)}</textarea><span class="hint">${escape(t("variablesHint"))}</span></div><p class="error-text" id="editor-error" role="alert"></p></div>
+      <footer class="dialog-actions"><button class="btn" type="button" data-action="close">${escape(t("cancel"))}</button><button class="btn primary" type="submit">${icon("check")}${escape(t("save"))}</button></footer></form>`,
     );
+    renderTagEditor();
+  }
+  function renderTagEditor() {
+    document.getElementById("editable-tags").innerHTML = editorTags.length
+      ? editorTags
+          .map(
+            (tag, index) =>
+              `<span class="editable-tag ${index === editingTagIndex ? "editing" : ""}"><button type="button" data-rename-tag="${index}" aria-label="${escape(t("renameTag", { tag }))}">#${escape(tag)}</button><button type="button" data-remove-tag="${index}" aria-label="${escape(t("removeTag", { tag }))}">${icon("close")}</button></span>`,
+          )
+          .join("")
+      : `<span class="hint">${escape(t("noTags"))}</span>`;
+    dialog.querySelector('[data-action="commit-tag"]').textContent = t(
+      editingTagIndex === null ? "addTag" : "applyTag",
+    );
+    dialog.querySelector('[data-action="cancel-tag-edit"]').hidden =
+      editingTagIndex === null;
+    document.getElementById("tag-edit-status").textContent =
+      editingTagIndex === null
+        ? `${editorTags.length} / ${core.limits.tags}`
+        : t("editingTag", { tag: editorTags[editingTagIndex] });
+  }
+  function commitTagInput() {
+    const input = document.getElementById("edit-tags");
+    if (!input.value.trim() && editingTagIndex === null) return true;
+    try {
+      editorTags =
+        editingTagIndex === null
+          ? core.normalizeTags([
+              ...editorTags,
+              ...core.normalizeTags(input.value),
+            ])
+          : core.renameTag(editorTags, editingTagIndex, input.value);
+      input.value = "";
+      editingTagIndex = null;
+      document.getElementById("editor-error").textContent = "";
+      renderTagEditor();
+      return true;
+    } catch (_) {
+      document.getElementById("editor-error").textContent = t("invalidTags");
+      input.focus();
+      return false;
+    }
+  }
+  function beginTagEdit(index) {
+    const tag = editorTags[index];
+    if (tag === undefined) return;
+    const input = document.getElementById("edit-tags");
+    if (input.value.trim() && !commitTagInput()) return;
+    editingTagIndex = editorTags.findIndex(
+      (value) => core.tagIdentity(value) === core.tagIdentity(tag),
+    );
+    if (editingTagIndex < 0) {
+      editingTagIndex = null;
+      return;
+    }
+    input.value = editorTags[editingTagIndex];
+    renderTagEditor();
+    input.focus();
+    input.select();
+  }
+  function removeEditorTag(index) {
+    if (index < 0 || index >= editorTags.length) return;
+    editorTags = editorTags.filter((_, i) => i !== index);
+    if (editingTagIndex === index) {
+      editingTagIndex = null;
+      document.getElementById("edit-tags").value = "";
+    } else if (editingTagIndex !== null && editingTagIndex > index)
+      editingTagIndex--;
+    renderTagEditor();
+    document.getElementById("edit-tags").focus();
   }
   function saveEditor(form) {
     const fields = new FormData(form);
-    const tags = String(fields.get("tags"))
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean);
-    if (
-      tags.length > core.limits.tags ||
-      tags.some((tag) => tag.length > core.limits.tag)
-    ) {
-      document.getElementById("editor-error").textContent = t("invalidTags");
-      return;
-    }
+    if (!commitTagInput()) return;
+    const tags = [...editorTags];
+    const enteredCategory = String(fields.get("category")).trim();
+    const categoryValue =
+      enteredCategory === editorCategoryDisplay
+        ? editorCategory
+        : categoryOptions().find(
+            (value) => categoryName(value) === enteredCategory,
+          ) || enteredCategory;
     if (!editorId && state.prompts.length >= core.limits.prompts) {
       document.getElementById("editor-error").textContent = t("limitError");
       return;
@@ -326,7 +458,7 @@
         ...(existing || {}),
         title: fields.get("title"),
         description: fields.get("description"),
-        category: fields.get("category"),
+        category: categoryValue,
         tags,
         body: fields.get("body"),
         updatedAt: new Date().toISOString(),
@@ -343,7 +475,8 @@
       const saved = persist();
       dialog.close();
       query = "";
-      category = "all";
+      category = "";
+      tagFilter = "";
       if (route !== "my") location.hash = "my";
       else render();
       if (saved) notify(t("saved"));
@@ -477,7 +610,8 @@
       const ok = persist(),
         count = state.prompts.length - before;
       query = "";
-      category = "all";
+      category = "";
+      tagFilter = "";
       if (route !== "my") location.hash = "my";
       else render();
       if (ok) notify(t("importSuccess", { count }));
@@ -535,7 +669,7 @@
       render();
       return;
     }
-    if (target.dataset.category) {
+    if (target.hasAttribute("data-category")) {
       category = target.dataset.category;
       document.querySelectorAll("[data-category]").forEach((el) => {
         el.classList.toggle("active", el.dataset.category === category);
@@ -545,6 +679,27 @@
         );
       });
       renderGrid();
+      return;
+    }
+    if (target.hasAttribute("data-filter-tag")) {
+      tagFilter = core.tagIdentity(target.dataset.filterTag);
+      document.getElementById("tag-filter").value = tagFilter;
+      document.querySelector('[data-action="clear-tag-filter"]').hidden = false;
+      renderGrid();
+      document.getElementById("tag-filter").focus({ preventScroll: true });
+      return;
+    }
+    if (target.hasAttribute("data-rename-tag")) {
+      beginTagEdit(Number(target.dataset.renameTag));
+      return;
+    }
+    if (target.hasAttribute("data-remove-tag")) {
+      removeEditorTag(Number(target.dataset.removeTag));
+      return;
+    }
+    if (target.dataset.editPrompt) {
+      const p = itemById(target.dataset.editPrompt);
+      if (p) openEditor(p, p.builtIn);
       return;
     }
     if (target.dataset.open) {
@@ -566,6 +721,23 @@
       return;
     }
     switch (target.dataset.action) {
+      case "commit-tag":
+        commitTagInput();
+        document.getElementById("edit-tags").focus();
+        break;
+      case "cancel-tag-edit":
+        editingTagIndex = null;
+        document.getElementById("edit-tags").value = "";
+        renderTagEditor();
+        document.getElementById("edit-tags").focus();
+        break;
+      case "clear-tag-filter":
+        tagFilter = "";
+        document.getElementById("tag-filter").value = "";
+        target.hidden = true;
+        renderGrid();
+        document.getElementById("tag-filter").focus();
+        break;
       case "new":
         openEditor();
         break;
@@ -586,7 +758,8 @@
         break;
       case "reset":
         query = "";
-        category = "all";
+        category = "";
+        tagFilter = "";
         sort = "recommended";
         renderPage();
         break;
@@ -680,6 +853,12 @@
     }
   });
   document.addEventListener("change", (event) => {
+    if (event.target.id === "tag-filter") {
+      tagFilter = event.target.value;
+      document.querySelector('[data-action="clear-tag-filter"]').hidden =
+        !tagFilter;
+      renderGrid();
+    }
     if (event.target.id === "sort") {
       sort = event.target.value;
       renderGrid();
@@ -697,6 +876,27 @@
     }
   });
   document.addEventListener("keydown", (event) => {
+    if (
+      event.target.id === "edit-tags" &&
+      !event.isComposing &&
+      event.keyCode !== 229 &&
+      ["Enter", ",", "，", "、"].includes(event.key)
+    ) {
+      event.preventDefault();
+      commitTagInput();
+      return;
+    }
+    if (
+      event.target.id === "edit-tags" &&
+      event.key === "Escape" &&
+      editingTagIndex !== null
+    ) {
+      event.preventDefault();
+      editingTagIndex = null;
+      event.target.value = "";
+      renderTagEditor();
+      return;
+    }
     if (
       event.key === "/" &&
       !dialog.open &&
@@ -718,7 +918,8 @@
     route = readRoute();
     category =
       new URLSearchParams(location.hash.split("?")[1] || "").get("category") ||
-      "all";
+      "";
+    tagFilter = "";
     query = "";
     if (dialog.open) dialog.close();
     render();

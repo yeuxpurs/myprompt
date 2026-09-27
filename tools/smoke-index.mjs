@@ -30,7 +30,10 @@ for (const item of catalog) {
   for (const language of languageCodes) {
     const localized = item.translations[language];
     for (const key of ['title', 'description', 'body']) assert.ok(typeof localized[key] === 'string' && localized[key].trim(), `${item.id}/${language}: missing ${key}`);
-    core.validatePrompt({ ...localized, id: item.id, category: item.category, tags: item.tags });
+    assert.ok(Array.isArray(localized.tags), `${item.id}/${language}: localized tags`);
+    assert.equal(localized.tags.length, item.tags.length, `${item.id}/${language}: tag count`);
+    assert.deepEqual(core.normalizeTags(localized.tags), localized.tags, `${item.id}/${language}: valid distinct tags`);
+    core.validatePrompt({ ...localized, id: item.id, category: item.category });
     const variables = core.extractVariables(localized.body);
     assert.ok(variables.length > 0, `${item.id}/${language}: usable variables`);
     assert.equal(core.fillVariables(localized.body, {}), localized.body, `${item.id}/${language}: missing variables remain visible`);

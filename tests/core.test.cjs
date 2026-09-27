@@ -53,6 +53,48 @@ test('invalid prompts fail before any caller can persist partial data', () => {
   assert.throws(() => core.validatePrompt(Object.create({ title: 'Inherited', body: 'No' })));
 });
 
+test('tags accept multilingual separators and preserve the first spelling of equivalent tags', () => {
+  const input = ' Review, REVIEW\n 日本語，中文、한국어\r\nCafé, Cafe\u0301,ＡＩ,ai,,  ';
+  assert.deepEqual(core.normalizeTags(input), ['Review', '日本語', '中文', '한국어', 'Café', 'ＡＩ']);
+  assert.equal(core.tagIdentity(' ＡＩ '), core.tagIdentity('ai'));
+  assert.deepEqual(core.normalizeTags(' ,\n，、 '), []);
+  assert.deepEqual(core.normalizeTags(['One', 'one', '', '  ', 'Two']), ['One', 'Two']);
+});
+
+test('tag rename can change spelling, merge duplicates, and retains unrelated tags without mutation', () => {
+  const original = Object.freeze(['Review', 'Writing', 'AI']);
+  assert.deepEqual(core.renameTag(original, 0, 'REVIEW'), ['REVIEW', 'Writing', 'AI']);
+  assert.deepEqual(core.renameTag(original, 1, 'review'), ['Review', 'AI']);
+  assert.deepEqual(core.renameTag(original, 0, 'ＡＩ'), ['ＡＩ', 'Writing']);
+  assert.deepEqual(original, ['Review', 'Writing', 'AI']);
+});
+
+test('tag validation reports invalid tags and never changes an existing collection', () => {
+  const original = Object.freeze(Array.from({ length: 20 }, (_, index) => 'Tag ' + index));
+  const invalid = { code: 'INVALID_TAGS' };
+  assert.deepEqual(core.normalizeTags(original), original);
+  assert.deepEqual(core.normalizeTags([...original, 'tag 0']), original);
+  assert.throws(() => core.normalizeTags([...original, 'New']), invalid);
+  assert.throws(() => core.renameTag(original, 0, 'x'.repeat(51)), invalid);
+  for (const value of [null, {}, 42, ['valid', 42], ['valid', null], Array(1), ['bad\nname'], ['bad\tname'], ['bad\u0085name'], 'bad\0name']) {
+    assert.throws(() => core.normalizeTags(value), invalid);
+  }
+  for (const index of [-1, 20, 0.5, '0', NaN]) {
+    assert.throws(() => core.renameTag(original, index, 'New'), invalid);
+  }
+  for (const name of ['', '  ', null, 'bad\nname', 'bad\u007fname']) {
+    assert.throws(() => core.renameTag(original, 0, name), invalid);
+  }
+  assert.deepEqual(original, Array.from({ length: 20 }, (_, index) => 'Tag ' + index));
+});
+
+test('prompt tags use shared normalization while stored data still requires an array', () => {
+  const normalized = core.validatePrompt(prompt({ tags: [' Review ', 'REVIEW', 'ＡＩ', 'ai', ''] }));
+  assert.deepEqual(normalized.tags, ['Review', 'ＡＩ']);
+  assert.throws(() => core.validatePrompt(prompt({ tags: 'Review, AI' })), { code: 'INVALID_TAGS' });
+  assert.throws(() => core.parseImport(JSON.stringify({ version: 2, prompts: [prompt({ tags: 'Review, AI' })] })), { code: 'INVALID_TAGS' });
+});
+
 test('all three legacy backup shapes preserve every prompt and have stable ids', () => {
   const raw = core.parseImport(JSON.stringify(legacy));
   for (const wrapper of [{ data: legacy }, { promptUIData: legacy, version: '2.0' }]) {

@@ -1,7 +1,7 @@
 /* Cache only this application's public files, within this registration's scope. */
 const SCOPE_URL = new URL(self.registration.scope);
 const CACHE_PREFIX = `myprompt:${SCOPE_URL.pathname}:`;
-const CACHE_NAME = `${CACHE_PREFIX}2026-09-27-v2`;
+const CACHE_NAME = `${CACHE_PREFIX}2026-09-27-v2-editing`;
 const PRECACHE = [
   './', './index.html', './offline.html', './manifest.webmanifest',
   './assets/core.js', './assets/i18n.js', './assets/prompts.js', './assets/app.js',
