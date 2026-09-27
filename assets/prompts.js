@@ -437,7 +437,7 @@ Object, capture conditions, and reference criteria: {{context and criteria}}
 Preferred report format: {{report format}}
 
 Inspect the images you can actually access and identify any you cannot view. Classify each finding as directly visible, inferred, or not determinable from images alone; include the image label and location. Explain limits from resolution, occlusion, and lighting. Without scale or specifications, do not assert dimensions or compliance. Do not invent quality scores or defect probabilities. For suspected issues, propose additional views, measurements, or physical checks. Base the conclusion only on what was established.` },
-      vi: { tags: ['phân tích hình ảnh', 'kiểm tra', 'bằng chứng'], title: 'Kiểm tra hình ảnh, chỉ kết luận theo bằng chứng', description: 'Tách điều nhìn thấy, điều suy đoán và điều cần kiểm tra thực tế.', body: `Vấn đề cần kiểm tra: {{mục tiêu kiểm tra}}
+      vi: { tags: ['phân tích hình ảnh', 'kiểm định hình ảnh', 'bằng chứng'], title: 'Kiểm tra hình ảnh, chỉ kết luận theo bằng chứng', description: 'Tách điều nhìn thấy, điều suy đoán và điều cần kiểm tra thực tế.', body: `Vấn đề cần kiểm tra: {{mục tiêu kiểm tra}}
 Hình ảnh và tên nhận diện: {{hình ảnh}}
 Đối tượng, điều kiện chụp và tiêu chí tham chiếu: {{bối cảnh và tiêu chí}}
 Định dạng báo cáo mong muốn: {{định dạng báo cáo}}

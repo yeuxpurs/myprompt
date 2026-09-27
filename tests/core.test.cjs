@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const core = require('../assets/core.js');
 const instant = '2026-09-27T00:00:00.000Z';
 const prompt = (overrides = {}) => ({ id: 'p-test', title: 'Review', description: '', body: 'Review {{ source }} for {{audience}}.', category: 'Writing', tags: ['review'], createdAt: instant, updatedAt: instant, ...overrides });
-const state = (overrides = {}) => ({ version: 2, prompts: [], favorites: [], language: 'ja', ...overrides });
+const state = (overrides = {}) => ({ version: 2, prompts: [], favorites: [], language: 'ja', layout: { categoryOrder: [], tagOrder: [], promptOrder: [] }, ...overrides });
 const legacy = { cats: [{ id: 'cat', name: '仕事', tasks: [{ id: 'task', name: 'レビュー', prompts: ['First {{資料}}', 'Second prompt'] }] }] };
 function storage(initial = {}) {
   const values = new Map(Object.entries(initial));
@@ -264,4 +264,134 @@ test('malformed legacy data cannot crash initialization or replace its original'
   assert.equal(store.error.code, 'CORRUPT_LEGACY_STORAGE');
   assert.equal(saved.getItem('promptUIData'), '{bad');
   assert.equal(saved.getItem('myprompt.v2'), null);
+});
+
+test('layout preserves explicit all/category, section/tag, and prompt orders across storage and JSON', () => {
+  const layout = { categoryOrder: ['仕事', '', 'Empty'], tagOrder: [{ category: '仕事', tags: ['二番目', '一番目', 'Review'] }, { category: 'Empty', tags: [] }], promptOrder: ['p-second', 'p-first'] };
+  const original = state({ layout, language: 'ko', prompts: [prompt({ id: 'p-first' }), prompt({ id: 'p-second', body: 'Second' })] });
+  const saved = storage();
+  assert.equal(core.createStore(saved).save(original), true);
+  assert.deepEqual(core.createStore(saved).load(), original);
+  const parsed = core.parseDocument(JSON.stringify(original));
+  assert.deepEqual(parsed.layout, layout);
+  assert.deepEqual(parsed.prompts, original.prompts);
+  assert.equal(parsed.language, 'ko');
+  assert.equal(parsed.format, 'v2');
+  assert.deepEqual(core.parseImport(JSON.stringify(original)), original.prompts);
+});
+
+test('layout normalization deduplicates stably without mutating input or conflating case-sensitive sections', () => {
+  const original = { categoryOrder: [' Empty ', '', 'Empty', 'empty'], tagOrder: [{ category: ' Empty ', tags: ['Section', 'Section', 'section'] }, { category: 'Empty', tags: ['Later', 'Section'] }], promptOrder: ['p-b', 'p-a', 'p-b'] };
+  const before = JSON.stringify(original);
+  assert.deepEqual(core.normalizeLayout(original), { categoryOrder: ['Empty', '', 'empty'], tagOrder: [{ category: 'Empty', tags: ['Section', 'section', 'Later'] }], promptOrder: ['p-b', 'p-a'] });
+  assert.equal(JSON.stringify(original), before);
+  assert.deepEqual(core.normalizeLayout(), state().layout);
+});
+
+test('invalid layouts fail atomically and prototype properties never become layout records', () => {
+  for (const layout of [null, [], { categoryOrder: [42] }, { categoryOrder: Array(1) }, { categoryOrder: ['x'.repeat(101)] }, { categoryOrder: Array(5001).fill('x') }, { tagOrder: [{}] }, { tagOrder: Array(1) }, { tagOrder: [{ category: 'x', tags: ['x'.repeat(161)] }] }, { tagOrder: [{ category: 'x', tags: [''] }] }, { promptOrder: ['__proto__'] }, { promptOrder: Array(1) }, Object.create({ categoryOrder: ['hidden'] })]) {
+    assert.throws(() => core.normalizeLayout(layout));
+  }
+  assert.throws(() => core.parseDocument('{"version":2,"prompts":[],"layout":{"constructor":{}}}'));
+  assert.throws(() => core.normalizeLayout(Object.defineProperty({}, 'tagOrder', { enumerable: true, get() { throw new Error('Getter must not run'); } })), /Accessors/);
+});
+
+test('reorder moves either direction, leaves the input untouched, and rejects invalid positions', () => {
+  const original = Object.freeze(['All', 'Writing', 'Work', 'Study']);
+  assert.deepEqual(core.reorder(original, 0, 2), ['Writing', 'Work', 'All', 'Study']);
+  assert.deepEqual(core.reorder(original, 3, 0), ['Study', 'All', 'Writing', 'Work']);
+  assert.deepEqual(core.reorder(original, 1, 1), original);
+  assert.notEqual(core.reorder(original, 1, 1), original);
+  assert.deepEqual(original, ['All', 'Writing', 'Work', 'Study']);
+  for (const indexes of [[-1, 0], [0, 4], [0.5, 1], [1, NaN], ['0', 1]]) assert.throws(() => core.reorder(original, ...indexes), { code: 'INVALID_ORDER' });
+  assert.throws(() => core.reorder([], 0, 0), { code: 'INVALID_ORDER' });
+});
+
+test('older v2 storage acquires an empty layout without losing data or changing original bytes on load', () => {
+  const older = { version: 2, prompts: [prompt()], favorites: ['p-test'], language: 'fr' };
+  const original = JSON.stringify(older);
+  const saved = storage({ 'myprompt.v2': original });
+  const store = core.createStore(saved);
+  assert.deepEqual(store.load(), { ...older, layout: state().layout });
+  assert.equal(saved.getItem('myprompt.v2'), original);
+  assert.deepEqual(core.parseDocument(original).layout, state().layout);
+  assert.equal(store.error, null);
+});
+
+test('legacy hierarchy retains empty categories/tasks and task variables, description, and tags in order', () => {
+  const library = { cats: [{ name: 'Empty', tasks: [] }, { name: 'Work', tasks: [{ name: 'Later', prompts: [] }, { name: 'Review', description: 'Instructions', tags: ['First', 'Second'], variables: ['資料', 'audience', '資料'], variableOrder: ['audience', '資料'], prompts: ['Read {{資料}}'] }] }] };
+  const parsed = core.parseDocument(JSON.stringify(library));
+  assert.deepEqual(parsed.layout.categoryOrder, ['Empty', 'Work']);
+  assert.deepEqual(parsed.layout.tagOrder, [{ category: 'Empty', tags: [] }, { category: 'Work', tags: ['Later', 'Review'] }]);
+  assert.deepEqual(parsed.layout.promptOrder, [parsed.prompts[0].id]);
+  assert.equal(parsed.prompts[0].section, 'Review');
+  assert.equal(parsed.prompts[0].description, 'Instructions');
+  assert.deepEqual(parsed.prompts[0].tags, ['First', 'Second']);
+  assert.deepEqual(parsed.prompts[0].variables, ['資料', 'audience']);
+  assert.deepEqual(parsed.prompts[0].variableOrder, ['audience', '資料']);
+  assert.equal(parsed.format, 'legacy');
+  for (const wrapped of [{ data: library }, { promptUIData: library }]) assert.deepEqual(core.parseDocument(JSON.stringify(wrapped)).layout, parsed.layout);
+  const saved = storage({ promptUIData: JSON.stringify(library) });
+  assert.deepEqual(core.createStore(saved).load().layout, parsed.layout);
+  assert.equal(saved.getItem('promptUIData'), JSON.stringify(library));
+});
+
+test('legacy metadata roundtrips ids and details while hierarchy edits remain authoritative', () => {
+  const original = prompt({ section: 'Review', tags: ['First', 'Second'], variables: ['source'], variableOrder: ['source'] });
+  const task = { name: 'Review', prompts: [original.body], promptMeta: [original] };
+  const library = { cats: [{ name: original.category, tasks: [task] }], favorites: [original.id], language: 'es' };
+  const parsed = core.parseDocument(JSON.stringify(library));
+  assert.deepEqual(parsed.prompts, [original]);
+  assert.deepEqual(parsed.favorites, [original.id]);
+  assert.equal(parsed.language, 'es');
+  task.name = 'Renamed task';
+  task.prompts[0] = 'Changed body';
+  library.cats[0].name = 'Renamed category';
+  const edited = core.parseDocument(JSON.stringify(library)).prompts[0];
+  assert.equal(edited.section, 'Renamed task');
+  assert.equal(edited.title, 'Renamed task');
+  assert.equal(edited.category, 'Renamed category');
+  assert.equal(edited.body, 'Changed body');
+  assert.equal(edited.id, original.id);
+});
+
+test('legacy empty section and uncategorized prompts remain editable with their own titles', () => {
+  const original = prompt({ category: '', section: '' });
+  const library = { cats: [{ name: '', tasks: [{ name: '', prompts: [original.body], promptMeta: [original] }] }] };
+  const parsed = core.parseDocument(JSON.stringify(library));
+  assert.deepEqual(parsed.prompts, [original]);
+  assert.deepEqual(parsed.layout.categoryOrder, ['']);
+  assert.deepEqual(parsed.layout.tagOrder, [{ category: '', tags: [] }]);
+  delete original.section;
+  assert.deepEqual(core.parseDocument(JSON.stringify(library)).prompts, [original]);
+});
+
+test('wrapped legacy backups preserve outer layout, favorites, and language preferences', () => {
+  const layout = { categoryOrder: ['Empty', ''], tagOrder: [{ category: 'Empty', tags: ['tag:review', 'Task'] }], promptOrder: ['p-test'] };
+  const library = { version: 2, promptUIData: { cats: [{ name: 'Writing', tasks: [{ name: '', prompts: [prompt().body], promptMeta: [prompt()] }] }] }, layout, favorites: ['p-test'], language: 'vi' };
+  const parsed = core.parseDocument(JSON.stringify(library));
+  assert.deepEqual(parsed.layout, layout);
+  assert.deepEqual(parsed.prompts, [prompt()]);
+  assert.deepEqual(parsed.favorites, ['p-test']);
+  assert.equal(parsed.language, 'vi');
+});
+
+test('section and variable validation is optional, bounded, and stable', () => {
+  assert.equal(Object.hasOwn(core.validatePrompt(prompt()), 'section'), false);
+  const original = prompt({ section: '長いセクション名'.repeat(10), variables: ['first', 'second', 'first'], variableOrder: ['second', 'first'] });
+  const normalized = core.validatePrompt(original);
+  assert.equal(normalized.section, original.section);
+  assert.deepEqual(normalized.variables, ['first', 'second']);
+  assert.deepEqual(normalized.variableOrder, ['second', 'first']);
+  assert.deepEqual(core.validatePrompt(normalized), normalized);
+  for (const override of [{ section: 'x'.repeat(161) }, { variables: ['x'.repeat(101)] }, { variableOrder: Array(101).fill('x') }, { variables: 'first,second' }, { variables: [null] }]) assert.throws(() => core.validatePrompt(prompt(override)));
+});
+
+test('import deduplication distinguishes hierarchy and meaningful tag or variable order', () => {
+  const original = prompt({ tags: ['First', 'Second'], section: 'One', variables: ['first', 'second'], variableOrder: ['first', 'second'] });
+  const versions = [prompt({ ...original, tags: ['Second', 'First'] }), prompt({ ...original, section: 'Two' }), prompt({ ...original, variableOrder: ['second', 'first'] })];
+  const merged = core.mergeImport([original], versions).prompts;
+  assert.equal(merged.length, 4);
+  assert.equal(new Set(merged.map(item => item.id)).size, 4);
+  assert.deepEqual(core.mergeImport(merged, versions).prompts, merged);
 });

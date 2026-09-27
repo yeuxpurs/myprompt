@@ -2,6 +2,7 @@
 (() => {
   "use strict";
   const core = window.MYPROMPT_CORE;
+  const formats = window.MYPROMPT_FORMATS;
   const catalog = window.MYPROMPT_PROMPTS;
   const locales = window.MYPROMPT_I18N;
   const store = core.createStore();
@@ -25,6 +26,10 @@
     generated = "",
     draft = loadDraft(),
     editorId = null;
+  let editorMetadata = {},
+    sourceFormat = "json",
+    drag = null;
+  const layoutBackupKey = "myprompt.layout-backup";
   const mobileQuery = window.matchMedia("(max-width: 800px)");
   const categories = [
     "writing",
@@ -62,6 +67,7 @@
     coding: '<path d="m8 6-6 6 6 6m8-12 6 6-6 6M14 3l-4 18"/>',
     engineering: '<path d="m12 3 8 4v10l-8 4-8-4V7zM4 7l8 5 8-5M12 12v9"/>',
     creative: '<path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/>',
+    grip: '<path d="M8 5h.01M16 5h.01M8 12h.01M16 12h.01M8 19h.01M16 19h.01" stroke-width="3"/>',
     menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
     globe:
       '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18"/>',
@@ -121,33 +127,95 @@
   function categoryName(value) {
     return categories.includes(value) ? t(value) : value || t("custom");
   }
-  function categoryOptions() {
+  function ordered(values, saved = []) {
+    const unique = [...new Set(values)];
     return [
-      ...new Set([
-        ...categories,
-        ...state.prompts.map((p) => p.category).filter(Boolean),
-      ]),
+      ...saved.filter((v, i) => unique.includes(v) && saved.indexOf(v) === i),
+      ...unique.filter((v) => !saved.includes(v)),
     ];
   }
-  function tagOptions() {
-    const unique = new Map();
-    for (const p of items())
-      for (const tag of p.tags || []) {
-        const key = core.tagIdentity(tag);
-        if (!unique.has(key)) unique.set(key, tag);
-      }
-    return [...unique.entries()].sort((a, b) =>
-      a[1].localeCompare(b[1], language),
+  function categoryOptions() {
+    return ordered(
+      [
+        ...categories,
+        ...state.prompts.map((p) => p.category).filter(Boolean),
+        ...state.layout.categoryOrder.filter(Boolean),
+      ],
+      state.layout.categoryOrder,
     );
   }
-  function tagChips(tags, clickable = false) {
-    return `<div class="prompt-tags">${(tags || [])
-      .map((tag) =>
+  function categorySequence() {
+    return ordered(["", ...categoryOptions()], state.layout.categoryOrder);
+  }
+  const tagAliases = new Map();
+  for (const item of catalog)
+    for (const translation of Object.values(item.translations)) {
+      translation.tags.forEach((label, index) => {
+        const identity = core.tagIdentity(label);
+        if (!tagAliases.has(identity))
+          tagAliases.set(identity, core.tagIdentity(item.tags[index]));
+      });
+    }
+  function promptTagEntries(p) {
+    const original = p.builtIn
+      ? catalog.find((item) => item.id === p.id)
+      : null;
+    return (p.tags || []).map((tag, index) => [
+      `tag:${original ? core.tagIdentity(original.tags[index]) : tagAliases.get(core.tagIdentity(tag)) || core.tagIdentity(tag)}`,
+      tag,
+    ]);
+  }
+  function subtagOptions(cat = category) {
+    const entries = new Map();
+    for (const p of items().filter((p) => !cat || p.category === cat)) {
+      if (p.section) entries.set(p.section, p.section);
+      for (const [key, label] of promptTagEntries(p))
+        if (!entries.has(key)) entries.set(key, label);
+    }
+    const saved =
+      state.layout.tagOrder.find((row) => row.category === cat)?.tags || [];
+    for (const key of saved)
+      if (!key.startsWith("tag:") && !entries.has(key)) entries.set(key, key);
+    return ordered([...entries.keys()], saved).map((key) => [
+      key,
+      entries.get(key),
+    ]);
+  }
+  function tagOptions() {
+    return subtagOptions("").filter(([key]) => key.startsWith("tag:"));
+  }
+  function orderAttrs(kind, key, group = "") {
+    return `data-order-kind="${kind}" data-order-key="${escape(key)}" data-order-group="${escape(group)}"`;
+  }
+  function dragHandle(name) {
+    return `<button type="button" class="drag-handle" data-drag-handle aria-label="${escape(t("moveItem", { name }))}" title="${escape(t("arrangementHint"))}">${icon("grip")}</button>`;
+  }
+  function tagChips(tags, clickable = false, prompt) {
+    const entries = prompt
+      ? promptTagEntries(prompt)
+      : (tags || []).map((tag) => [`tag:${core.tagIdentity(tag)}`, tag]);
+    return `<div class="prompt-tags">${entries
+      .map(([key, tag]) =>
         clickable
-          ? `<button class="prompt-tag" data-filter-tag="${escape(tag)}" aria-label="${escape(t("filterTag"))}: ${escape(tag)}">#${escape(tag)}</button>`
+          ? `<button class="prompt-tag" data-filter-tag="${escape(key)}" aria-label="${escape(t("filterTag"))}: ${escape(tag)}">#${escape(tag)}</button>`
           : `<span class="prompt-tag">#${escape(tag)}</span>`,
       )
       .join("")}</div>`;
+  }
+  function filterRows() {
+    return `<div class="arrange-heading"><span>${escape(t("arrange"))}<small>${escape(t("arrangementHint"))}</small></span><button class="btn quiet" data-action="layout-editor">${icon("coding")}${escape(t("layoutEditor"))}</button></div>
+      <div class="filters" role="group" aria-label="${escape(t("categoryLabel"))}">${categorySequence()
+        .map(
+          (cat) =>
+            `<span class="sortable-chip ${category === cat ? "active" : ""}" ${orderAttrs("category", cat)}>${dragHandle(cat ? categoryName(cat) : t("all"))}<button class="filter" data-category="${escape(cat)}" aria-pressed="${category === cat}">${escape(cat ? categoryName(cat) : t("all"))}</button></span>`,
+        )
+        .join("")}</div>
+      <div class="subtag-row"><span class="subtag-label">${escape(t("subcategories"))}</span><div class="subtag-filters" role="group" aria-label="${escape(t("subcategories"))}"><button class="subtag-all ${!tagFilter ? "active" : ""}" data-filter-tag="" aria-pressed="${!tagFilter}">${escape(t("allSubtags"))}</button>${subtagOptions()
+        .map(
+          ([key, label]) =>
+            `<span class="sortable-chip subtag ${tagFilter === key ? "active" : ""}" ${orderAttrs("subtag", key, category)}>${dragHandle(label)}<button class="filter" data-filter-tag="${escape(key)}" aria-pressed="${tagFilter === key}">${key.startsWith("tag:") ? "#" : ""}${escape(label)}</button></span>`,
+        )
+        .join("")}</div></div>`;
   }
   function persist() {
     state.language = language;
@@ -183,7 +251,7 @@
       <aside class="sidebar" id="sidebar"><a class="brand" href="#home"><span class="brand-mark">m</span>myprompt</a><div class="brand-sub">${escape(t("tagline"))}</div>
       <nav aria-label="${escape(t("workspace"))}"><p class="nav-label">${escape(t("workspace"))}</p>${navLink("home", "home", "home")}${navLink("library", "library", "library")}${navLink("studio", "studio", "studio")}${navLink("workflows", "workflows", "workflows")}${navLink("guide", "guide", "guide")}
       <p class="nav-label">${escape(t("personal"))}</p>${navLink("favorites", "star", "favorites", state.favorites.length)}${navLink("my", "folder", "myPrompts", state.prompts.length)}</nav>
-      <div class="sidebar-bottom"><div class="storage-card"><strong>${icon("lock")}${escape(t("backup"))}</strong>${escape(t("localNote"))}<div class="backup-actions"><button data-action="export">${escape(t("export"))} ↗</button><button data-action="import">${escape(t("import"))} ↙</button></div></div><div class="sidebar-foot"><span class="live-dot"></span>GPT-6 · 2026 EDITION</div></div></aside>
+      <div class="sidebar-bottom"><div class="storage-card"><strong>${icon("lock")}${escape(t("backup"))}</strong>${escape(t("localNote"))}<button class="source-link" data-action="layout-editor">${escape(t("layoutEditor"))} ↗</button><div class="backup-actions"><button data-action="export">${escape(t("export"))} ↗</button><button data-action="import">${escape(t("import"))} ↙</button></div></div><div class="sidebar-foot"><span class="live-dot"></span>GPT-6 · 2026 EDITION</div></div></aside>
       <div class="shell"><header class="topbar"><button class="menu-button" data-action="menu" aria-label="${escape(t("mobileMenu"))}" aria-expanded="false" aria-controls="sidebar">${icon("menu")}</button><div class="crumb">myprompt <span>/</span> <strong>${escape(routeLabel())}</strong></div><div class="language-bar" role="group" aria-label="${escape(t("languageLabel"))}">${core.languages.map((lang) => `<button lang="${lang.code}" data-language="${lang.code}" aria-pressed="${language === lang.code}">${escape(lang.name)}</button>`).join("")}</div></header>
       <main id="main-content" class="main" tabindex="-1"><div class="notice" id="storage-notice" role="alert" ${store.error ? "" : "hidden"}>${store.error ? escape(t("storageError")) : ""}</div><div id="page"></div><footer class="bottom-note"><span>${icon("lock")}${escape(t("footer"))}</span><a href="https://github.com/yeuxpurs/myprompt" target="_blank" rel="noopener noreferrer">GitHub ↗</a></footer></main></div>`;
     renderPage();
@@ -207,7 +275,7 @@
       page.innerHTML = guidePage();
       return;
     }
-    if (tagFilter && !tagOptions().some(([key]) => key === tagFilter))
+    if (tagFilter && !subtagOptions().some(([key]) => key === tagFilter))
       tagFilter = "";
     if (category && !categoryOptions().includes(category)) category = "";
     const home = route === "home";
@@ -221,15 +289,7 @@
       "beforeend",
       `${home ? `<div class="section-head"><div><h2>${escape(t("featured"))}</h2><p>${escape(t("featuredDescription"))}</p></div><a href="#library">${escape(t("viewAll"))}${icon("arrow")}</a></div>` : ""}
       <div class="tools-row"><div class="search-box">${icon("search")}<input id="search" type="search" aria-label="${escape(t("searchPlaceholder"))}" placeholder="${escape(t("searchPlaceholder"))}" value="${escape(query)}" autocomplete="off"><kbd aria-hidden="true">/</kbd></div>${home ? "" : `<button class="btn primary" data-action="new">${icon("plus")}${escape(t("addPrompt"))}</button>`}</div>
-      <div class="filters" role="group" aria-label="${escape(t("categoryLabel"))}">${["", ...categoryOptions()].map((cat) => `<button class="filter ${category === cat ? "active" : ""}" data-category="${escape(cat)}" aria-pressed="${category === cat}">${escape(cat ? categoryName(cat) : t("all"))}</button>`).join("")}</div>
-      <div class="tag-filter-row"><label for="tag-filter">${escape(t("filterTag"))}</label><select id="tag-filter"><option value="">${escape(t("allTags"))}</option>${tagOptions()
-        .map(
-          ([key, label]) =>
-            `<option value="${escape(key)}" ${tagFilter === key ? "selected" : ""}>${escape(label)}</option>`,
-        )
-        .join(
-          "",
-        )}</select><button class="btn quiet" data-action="clear-tag-filter" ${tagFilter ? "" : "hidden"}>${escape(t("clearTagFilter"))}</button></div><div class="result-meta"><span id="result-count" role="status"></span><select class="sort" id="sort" aria-label="${escape(t("sortLabel"))}"><option value="recommended" ${sort === "recommended" ? "selected" : ""}>${escape(t("sortRecommended"))}</option><option value="newest" ${sort === "newest" ? "selected" : ""}>${escape(t("sortNewest"))}</option></select></div><div class="prompt-grid" id="prompt-grid"></div>`,
+      ${filterRows()}<div class="result-meta"><span id="result-count" role="status"></span><select class="sort" id="sort" aria-label="${escape(t("sortLabel"))}"><option value="recommended" ${sort === "recommended" ? "selected" : ""}>${escape(t("promptOrder"))}</option><option value="newest" ${sort === "newest" ? "selected" : ""}>${escape(t("sortNewest"))}</option></select></div><div class="prompt-grid" id="prompt-grid"></div>`,
     );
     renderGrid();
   }
@@ -244,9 +304,16 @@
       list = list.filter((p) => state.favorites.includes(p.id));
     if (category) list = list.filter((p) => p.category === category);
     if (tagFilter)
-      list = list.filter((p) =>
-        (p.tags || []).some((tag) => core.tagIdentity(tag) === tagFilter),
+      list = list.filter(
+        (p) =>
+          p.section === tagFilter ||
+          promptTagEntries(p).some(([key]) => key === tagFilter),
       );
+    const order = ordered(
+      list.map((p) => p.id),
+      state.layout.promptOrder,
+    );
+    list.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
     const needle = query.trim().toLocaleLowerCase(language);
     if (needle)
       list = list.filter((p) =>
@@ -255,6 +322,7 @@
           p.description,
           p.body,
           categoryName(p.category),
+          p.section || "",
           ...(p.tags || []),
         ]
           .join(" ")
@@ -278,7 +346,7 @@
   }
   function card(p) {
     const favorite = state.favorites.includes(p.id);
-    return `<article class="prompt-card"><div class="card-top"><span class="category-icon ${categories.includes(p.category) ? p.category : ""}">${icon(p.category)}</span><div class="card-controls"><button class="icon-button quick-edit" data-edit-prompt="${escape(p.id)}" aria-label="${escape(t(p.builtIn ? "editCopy" : "edit"))}: ${escape(p.title)}">${icon("studio")}</button><button class="favorite-button" data-favorite="${escape(p.id)}" aria-label="${escape(t(favorite ? "unfavorite" : "favorite"))}: ${escape(p.title)}" aria-pressed="${favorite}">${icon("star")}</button></div></div><h3><button class="card-title" data-open="${escape(p.id)}">${escape(p.title)}</button></h3><p class="card-description">${escape(p.description || p.body.slice(0, 120))}</p>${tagChips(p.tags, true)}<div class="card-bottom"><span class="tag">${escape(categoryName(p.category))} · ${escape(t(p.builtIn ? "curated" : "custom"))}</span><button data-open="${escape(p.id)}">${escape(t("usePrompt"))}${icon("arrow")}</button></div></article>`;
+    return `<article class="prompt-card" ${orderAttrs("prompt", p.id)}><div class="card-top"><span class="category-icon ${categories.includes(p.category) ? p.category : ""}">${icon(p.category)}</span><div class="card-controls">${dragHandle(p.title)}<button class="icon-button quick-edit" data-edit-prompt="${escape(p.id)}" aria-label="${escape(t(p.builtIn ? "editCopy" : "edit"))}: ${escape(p.title)}">${icon("studio")}</button><button class="favorite-button" data-favorite="${escape(p.id)}" aria-label="${escape(t(favorite ? "unfavorite" : "favorite"))}: ${escape(p.title)}" aria-pressed="${favorite}">${icon("star")}</button></div></div><h3><button class="card-title" data-open="${escape(p.id)}">${escape(p.title)}</button></h3><p class="card-description">${escape(p.description || p.body.slice(0, 120))}</p>${p.section ? `<button class="section-badge" data-filter-tag="${escape(p.section)}">${escape(p.section)}</button>` : ""}${tagChips(p.tags, true, p)}<div class="card-bottom"><span class="tag">${escape(categoryName(p.category))} · ${escape(t(p.builtIn ? "curated" : "custom"))}</span><button data-open="${escape(p.id)}">${escape(t("usePrompt"))}${icon("arrow")}</button></div></article>`;
   }
   function workflowsPage() {
     return (
@@ -318,7 +386,10 @@
     selected = itemById(id);
     if (!selected) return;
     variables = Object.create(null);
-    const names = core.extractVariables(selected.body);
+    const names = ordered(
+      [...(selected.variables || []), ...core.extractVariables(selected.body)],
+      selected.variableOrder || [],
+    );
     openDialog(
       dialogHeader(selected.title, selected.description) +
         `<div class="dialog-content"><div class="detail-metadata"><span class="tag">${escape(categoryName(selected.category))}</span>${tagChips(selected.tags)}</div><div class="detail-grid ${names.length ? "" : "single"}">${names.length ? `<section><p class="field-label">${escape(t("variables"))}</p><p class="hint" style="margin:8px 0 20px">${escape(t("detailHint"))}</p>${names.map((name, index) => `<div class="field"><label for="var-${index}">${escape(name)}</label><textarea id="var-${index}" data-variable="${escape(name)}" placeholder="${escape(t("variablePlaceholder", { name }))}" maxlength="100000" rows="2"></textarea></div>`).join("")}</section>` : ""}<section><p class="field-label">${escape(t("preview"))}</p><pre class="preview-text" id="detail-preview"></pre><p id="unresolved" class="unresolved"></p><div class="detail-actions"><button class="btn primary" data-action="copy-detail">${icon("copy")}${escape(t("copy"))}</button><a class="btn" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">${escape(t("openChatGPT"))} ↗</a></div><p class="privacy-hint">${escape(t("handoffHint"))}</p></section></div><div id="delete-confirm"></div></div><footer class="dialog-actions"><button class="btn quiet push-left" data-action="edit">${icon("studio")}${escape(t(selected.builtIn ? "editCopy" : "edit"))}</button>${!selected.builtIn ? `<button class="btn quiet danger" data-action="delete">${escape(t("delete"))}</button>` : ""}<button class="btn" data-action="duplicate">${icon("plus")}${escape(t("duplicate"))}</button><button class="btn" data-action="close">${escape(t("close"))}</button></footer>`,
@@ -338,10 +409,16 @@
       title: "",
       description: "",
       body: "",
-      category: "work",
+      category: category || "work",
+      section: tagFilter && !tagFilter.startsWith("tag:") ? tagFilter : "",
       tags: [],
     };
     editorId = source && !source.builtIn && !duplicate ? source.id : null;
+    editorMetadata = Object.fromEntries(
+      ["variables", "variableOrder"]
+        .filter((key) => p[key] !== undefined)
+        .map((key) => [key, p[key]]),
+    );
     editorCategory = p.category || "";
     editorCategoryDisplay = editorCategory ? categoryName(editorCategory) : "";
     editorTags = [...(p.tags || [])];
@@ -358,6 +435,7 @@
       <div class="field"><label for="edit-title">${escape(t("titleLabel"))}</label><input id="edit-title" name="title" value="${escape(p.title)}" placeholder="${escape(t("titlePlaceholder"))}" maxlength="160" required></div>
       <div class="field"><label for="edit-description">${escape(t("descriptionLabel"))}</label><input id="edit-description" name="description" value="${escape(p.description)}" placeholder="${escape(t("descriptionPlaceholder"))}" maxlength="2000"></div>
       <div class="field"><label for="edit-category">${escape(t("categoryLabel"))}</label><input id="edit-category" name="category" list="category-options" value="${escape(editorCategoryDisplay)}" placeholder="${escape(t("categoryPlaceholder"))}" maxlength="100" aria-describedby="category-hint"><datalist id="category-options">${catOptions.map((cat) => `<option value="${escape(categoryName(cat))}"></option>`).join("")}</datalist><span class="hint" id="category-hint">${escape(t("categoryHint"))}</span></div>
+      <div class="field"><label for="edit-section">${escape(t("sectionLabel"))}</label><input id="edit-section" name="section" value="${escape(p.section || "")}" maxlength="160" list="section-options" aria-describedby="section-hint"><datalist id="section-options">${[...new Set(state.prompts.map((p) => p.section).filter(Boolean))].map((section) => `<option value="${escape(section)}"></option>`).join("")}</datalist><span class="hint" id="section-hint">${escape(t("sectionHint"))}</span></div>
       <div class="field"><label for="edit-tags">${escape(t("tagsLabel"))}</label><div class="tag-editor" id="tag-editor"><div id="editable-tags" class="editable-tags"></div><div class="tag-input-row"><input id="edit-tags" placeholder="${escape(t("tagInputPlaceholder"))}" aria-describedby="tags-hint tag-edit-status" autocomplete="off" list="tag-suggestions" maxlength="2000"><button class="btn" type="button" data-action="commit-tag">${escape(t("addTag"))}</button><button class="icon-button" type="button" data-action="cancel-tag-edit" aria-label="${escape(t("cancelTagEdit"))}" hidden>${icon("close")}</button></div></div><datalist id="tag-suggestions">${tagOptions()
         .map(([, tag]) => `<option value="${escape(tag)}"></option>`)
         .join(
@@ -373,7 +451,7 @@
       ? editorTags
           .map(
             (tag, index) =>
-              `<span class="editable-tag ${index === editingTagIndex ? "editing" : ""}"><button type="button" data-rename-tag="${index}" aria-label="${escape(t("renameTag", { tag }))}">#${escape(tag)}</button><button type="button" data-remove-tag="${index}" aria-label="${escape(t("removeTag", { tag }))}">${icon("close")}</button></span>`,
+              `<span class="editable-tag ${index === editingTagIndex ? "editing" : ""}" ${orderAttrs("editor-tag", core.tagIdentity(tag))}>${dragHandle(tag)}<button type="button" data-rename-tag="${index}" aria-label="${escape(t("renameTag", { tag }))}">#${escape(tag)}</button><button type="button" data-remove-tag="${index}" aria-label="${escape(t("removeTag", { tag }))}">${icon("close")}</button></span>`,
           )
           .join("")
       : `<span class="hint">${escape(t("noTags"))}</span>`;
@@ -455,10 +533,12 @@
     const existing = state.prompts.find((p) => p.id === editorId);
     try {
       const value = core.validatePrompt({
+        ...editorMetadata,
         ...(existing || {}),
         title: fields.get("title"),
         description: fields.get("description"),
         category: categoryValue,
+        section: String(fields.get("section") || "").trim(),
         tags,
         body: fields.get("body"),
         updatedAt: new Date().toISOString(),
@@ -550,63 +630,98 @@
       )
       .forEach((el) => (el.disabled = !generated));
   }
-  function exportLibrary() {
-    const blob = new Blob(
-      [
-        JSON.stringify(
-          { ...state, language, exportedAt: new Date().toISOString() },
-          null,
-          2,
-        ),
-      ],
-      { type: "application/json" },
-    );
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+  function workspaceDocument() {
+    return {
+      ...state,
+      language,
+      layout: { ...state.layout, categoryOrder: categorySequence() },
+    };
+  }
+  function downloadSource(text, format) {
+    const blob = new Blob([text], {
+      type:
+        format === "md"
+          ? "text/markdown;charset=utf-8"
+          : "application/json;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob),
+      link = document.createElement("a");
     link.href = url;
-    link.download = `myprompt-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `myprompt-${new Date().toISOString().slice(0, 10)}.${format}`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     notify(t("exportSuccess"));
+  }
+  function exportLibrary(format = "json") {
+    downloadSource(formats.serialize(workspaceDocument(), format), format);
+  }
+  function prepareDocument(parsed) {
+    const renamedIds = new Map();
+    const prompts = parsed.prompts.map((p) => {
+      if (!catalog.some((item) => item.id === p.id)) return p;
+      const renamed = core.validatePrompt({ ...p, id: undefined });
+      renamedIds.set(p.id, renamed.id);
+      return renamed;
+    });
+    const remap = (id) => renamedIds.get(id) || id;
+    return {
+      ...parsed,
+      prompts,
+      favorites: parsed.favorites.map(remap),
+      layout: {
+        ...parsed.layout,
+        promptOrder: parsed.layout.promptOrder.map(remap),
+      },
+    };
+  }
+  function mergeLayout(incoming, existing, remap) {
+    const rows = new Map(
+      existing.tagOrder.map((row) => [row.category, row.tags]),
+    );
+    for (const row of incoming.tagOrder)
+      rows.set(row.category, [
+        ...new Set([...row.tags, ...(rows.get(row.category) || [])]),
+      ]);
+    return core.normalizeLayout({
+      categoryOrder: [
+        ...new Set([...incoming.categoryOrder, ...existing.categoryOrder]),
+      ],
+      tagOrder: [...rows].map(([category, tags]) => ({ category, tags })),
+      promptOrder: [
+        ...new Set([
+          ...incoming.promptOrder.map(remap),
+          ...existing.promptOrder,
+        ]),
+      ],
+    });
   }
   async function importLibrary(file) {
     if (!file) return;
     try {
       if (file.size > core.limits.importBytes) throw new Error("size");
-      const text = await file.text();
-      const original = core.parseImport(text);
-      const reserved = new Map();
-      const incoming = original.map((p) => {
-        if (!catalog.some((item) => item.id === p.id)) return p;
-        const renamed = core.validatePrompt({ ...p, id: undefined });
-        reserved.set(p.id, renamed.id);
-        return renamed;
-      });
+      const incoming = prepareDocument(
+        formats.parse(
+          await file.text(),
+          /\.(?:md|markdown)$/i.test(file.name) ? "md" : "json",
+        ),
+      );
       const before = state.prompts.length;
-      const merged = core.mergeImport(state.prompts, incoming);
-      const raw = JSON.parse(text);
-      let favorites = [...state.favorites];
-      if (raw.version === 2 && Array.isArray(raw.favorites)) {
-        const allowed = new Set([
-          ...catalog.map((p) => p.id),
-          ...merged.prompts.map((p) => p.id),
-        ]);
-        const importedFavorites = raw.favorites
-          .filter((id) => typeof id === "string")
-          .map((id) => {
-            const originalId = reserved.get(id) || id;
-            return Object.prototype.hasOwnProperty.call(
-              merged.idMap,
-              originalId,
-            )
-              ? merged.idMap[originalId]
-              : id;
-          })
-          .filter((id) => allowed.has(id));
-        favorites = [...new Set([...favorites, ...importedFavorites])];
-      }
-      state.prompts = merged.prompts;
-      state.favorites = favorites;
+      const merged = core.mergeImport(state.prompts, incoming.prompts);
+      const remap = (id) =>
+        Object.hasOwn(merged.idMap, id) ? merged.idMap[id] : id;
+      const allowed = new Set([
+        ...catalog.map((p) => p.id),
+        ...merged.prompts.map((p) => p.id),
+      ]);
+      const next = {
+        ...state,
+        prompts: merged.prompts,
+        favorites: [
+          ...new Set([...state.favorites, ...incoming.favorites.map(remap)]),
+        ].filter((id) => allowed.has(id)),
+        layout: mergeLayout(incoming.layout, state.layout, remap),
+      };
+      state = next;
       const ok = persist(),
         count = state.prompts.length - before;
       query = "";
@@ -621,6 +736,220 @@
       document.getElementById("import-file").value = "";
     }
   }
+  function openLayoutEditor() {
+    sourceFormat = "json";
+    let hasBackup = false;
+    try {
+      hasBackup = !!localStorage.getItem(layoutBackupKey);
+    } catch (_) {}
+    openDialog(
+      dialogHeader(t("layoutTitle"), t("layoutDescription")) +
+        `<div class="dialog-content source-editor">
+      <div class="source-toolbar"><label for="source-format">${escape(t("formatLabel"))}</label><select id="source-format"><option value="json">JSON</option><option value="md">Markdown</option></select><button class="btn quiet" data-action="export-source-json">${escape(t("exportJSON"))}</button><button class="btn quiet" data-action="export-source-md">${escape(t("exportMarkdown"))}</button></div>
+      <label class="field-label" for="layout-source">${escape(t("sourceLabel"))}</label><p class="hint">${escape(t("sourceHelp"))}</p><textarea class="code layout-source" id="layout-source" spellcheck="false" aria-describedby="layout-apply-hint">${escape(formats.serialize(workspaceDocument(), sourceFormat))}</textarea><p class="hint" id="layout-apply-hint">${escape(t("layoutApplyHint"))}</p><p class="error-text" id="layout-error" role="alert"></p></div><footer class="dialog-actions"><button class="btn quiet push-left" data-action="restore-layout" ${hasBackup ? "" : "disabled"}>${escape(t("restoreLayout"))}</button><button class="btn" data-action="close">${escape(t("cancel"))}</button><button class="btn primary" data-action="apply-layout">${escape(t("applyLayout"))}</button></footer>`,
+    );
+  }
+  function sourceError() {
+    document.getElementById("layout-error").textContent = t("layoutError");
+  }
+  function changeSourceFormat(next) {
+    try {
+      const parsed = formats.parse(
+        document.getElementById("layout-source").value,
+        sourceFormat,
+      );
+      document.getElementById("layout-source").value = formats.serialize(
+        parsed,
+        next,
+      );
+      sourceFormat = next;
+      document.getElementById("layout-error").textContent = "";
+    } catch (_) {
+      document.getElementById("source-format").value = sourceFormat;
+      sourceError();
+    }
+  }
+  function exportEditorSource(format) {
+    try {
+      downloadSource(
+        formats.serialize(
+          formats.parse(
+            document.getElementById("layout-source").value,
+            sourceFormat,
+          ),
+          format,
+        ),
+        format,
+      );
+    } catch (_) {
+      sourceError();
+    }
+  }
+  function applyLayout(restore = false) {
+    let parsed;
+    try {
+      parsed = prepareDocument(
+        restore
+          ? core.parseDocument(localStorage.getItem(layoutBackupKey) || "")
+          : formats.parse(
+              document.getElementById("layout-source").value,
+              sourceFormat,
+            ),
+      );
+    } catch (_) {
+      sourceError();
+      return;
+    }
+    const allowed = new Set([
+      ...catalog.map((p) => p.id),
+      ...parsed.prompts.map((p) => p.id),
+    ]);
+    const next = {
+      ...state,
+      prompts: parsed.prompts,
+      layout: parsed.layout,
+      favorites: parsed.favorites.filter((id) => allowed.has(id)),
+      language,
+    };
+    try {
+      localStorage.setItem(layoutBackupKey, JSON.stringify(state));
+      if (!store.save(next)) throw new Error("storage");
+    } catch (_) {
+      document.getElementById("layout-error").textContent = t("storageError");
+      return;
+    }
+    state = next;
+    category = "";
+    tagFilter = "";
+    query = "";
+    sort = "recommended";
+    dialog.close();
+    render();
+    notify(t(restore ? "layoutRestored" : "layoutApplied"));
+  }
+  function sequenceFor(kind, group) {
+    if (kind === "category") return categorySequence();
+    if (kind === "subtag") return subtagOptions(group).map(([key]) => key);
+    if (kind === "editor-tag") return editorTags.map(core.tagIdentity);
+    const all = ordered(
+      items().map((p) => p.id),
+      state.layout.promptOrder,
+    );
+    if (sort !== "newest") return all;
+    const visible = filteredItems().map((p) => p.id),
+      included = new Set(visible);
+    let index = 0;
+    return all.map((id) => (included.has(id) ? visible[index++] : id));
+  }
+  function moveOrdered(kind, key, target, group = "") {
+    const sequence = sequenceFor(kind, group),
+      from = sequence.indexOf(key),
+      to = sequence.indexOf(target);
+    if (from < 0 || to < 0 || from === to) return;
+    const moved = core.reorder(sequence, from, to);
+    if (kind === "editor-tag") {
+      const editing =
+        editingTagIndex === null
+          ? null
+          : core.tagIdentity(editorTags[editingTagIndex]);
+      const tags = new Map(
+        editorTags.map((tag) => [core.tagIdentity(tag), tag]),
+      );
+      editorTags = moved.map((id) => tags.get(id));
+      editingTagIndex = editing === null ? null : moved.indexOf(editing);
+      renderTagEditor();
+    } else {
+      if (kind === "category") state.layout.categoryOrder = moved;
+      if (kind === "prompt") {
+        state.layout.promptOrder = moved;
+        sort = "recommended";
+      }
+      if (kind === "subtag")
+        state.layout.tagOrder = [
+          ...state.layout.tagOrder.filter((row) => row.category !== group),
+          { category: group, tags: moved },
+        ];
+      const ok = persist();
+      renderPage();
+      if (ok) notify(t("orderSaved"));
+    }
+    [...document.querySelectorAll("[data-order-kind]")]
+      .find(
+        (el) =>
+          el.dataset.orderKind === kind &&
+          el.dataset.orderKey === key &&
+          el.dataset.orderGroup === group,
+      )
+      ?.querySelector("[data-drag-handle]")
+      ?.focus({ preventScroll: true });
+  }
+  function clearDrag() {
+    document
+      .querySelectorAll(".is-dragging,.drop-target")
+      .forEach((el) => el.classList.remove("is-dragging", "drop-target"));
+    document.body.classList.remove("reordering");
+    drag = null;
+  }
+  document.addEventListener("pointerdown", (event) => {
+    const handle = event.target.closest("[data-drag-handle]");
+    if (!handle || event.button !== 0) return;
+    const row = handle.closest("[data-order-kind]");
+    event.preventDefault();
+    handle.focus({ preventScroll: true });
+    drag = {
+      kind: row.dataset.orderKind,
+      key: row.dataset.orderKey,
+      group: row.dataset.orderGroup,
+      x: event.clientX,
+      y: event.clientY,
+      pointer: event.pointerId,
+      row,
+      target: null,
+      moved: false,
+    };
+    handle.setPointerCapture(event.pointerId);
+  });
+  document.addEventListener("pointermove", (event) => {
+    if (!drag || event.pointerId !== drag.pointer) return;
+    if (
+      !drag.moved &&
+      Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 5
+    )
+      return;
+    drag.moved = true;
+    drag.row.classList.add("is-dragging");
+    document.body.classList.add("reordering");
+    document
+      .querySelectorAll(".drop-target")
+      .forEach((el) => el.classList.remove("drop-target"));
+    const row = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest("[data-order-kind]");
+    drag.target =
+      row &&
+      row.dataset.orderKind === drag.kind &&
+      row.dataset.orderGroup === drag.group
+        ? row.dataset.orderKey
+        : null;
+    if (drag.target !== null && drag.target !== drag.key)
+      row.classList.add("drop-target");
+    const scroller = dialog.open ? dialog : document.scrollingElement;
+    const bounds = dialog.open
+      ? dialog.getBoundingClientRect()
+      : { top: 0, bottom: innerHeight };
+    if (drag.target === null && event.clientY < bounds.top + 24)
+      scroller.scrollTop -= 15;
+    if (drag.target === null && event.clientY > bounds.bottom - 24)
+      scroller.scrollTop += 15;
+  });
+  document.addEventListener("pointerup", (event) => {
+    if (!drag || event.pointerId !== drag.pointer) return;
+    const current = drag;
+    clearDrag();
+    if (current.moved && current.target !== null)
+      moveOrdered(current.kind, current.key, current.target, current.group);
+  });
+  document.addEventListener("pointercancel", clearDrag);
   function syncSidebar() {
     const sidebar = document.getElementById("sidebar");
     const hidden = mobileQuery.matches && !sidebar.classList.contains("open");
@@ -669,24 +998,19 @@
       render();
       return;
     }
+    if (target.hasAttribute("data-drag-handle")) {
+      event.preventDefault();
+      return;
+    }
     if (target.hasAttribute("data-category")) {
       category = target.dataset.category;
-      document.querySelectorAll("[data-category]").forEach((el) => {
-        el.classList.toggle("active", el.dataset.category === category);
-        el.setAttribute(
-          "aria-pressed",
-          String(el.dataset.category === category),
-        );
-      });
-      renderGrid();
+      tagFilter = "";
+      renderPage();
       return;
     }
     if (target.hasAttribute("data-filter-tag")) {
-      tagFilter = core.tagIdentity(target.dataset.filterTag);
-      document.getElementById("tag-filter").value = tagFilter;
-      document.querySelector('[data-action="clear-tag-filter"]').hidden = false;
-      renderGrid();
-      document.getElementById("tag-filter").focus({ preventScroll: true });
+      tagFilter = target.dataset.filterTag;
+      renderPage();
       return;
     }
     if (target.hasAttribute("data-rename-tag")) {
@@ -731,12 +1055,20 @@
         renderTagEditor();
         document.getElementById("edit-tags").focus();
         break;
-      case "clear-tag-filter":
-        tagFilter = "";
-        document.getElementById("tag-filter").value = "";
-        target.hidden = true;
-        renderGrid();
-        document.getElementById("tag-filter").focus();
+      case "layout-editor":
+        openLayoutEditor();
+        break;
+      case "apply-layout":
+        applyLayout();
+        break;
+      case "restore-layout":
+        applyLayout(true);
+        break;
+      case "export-source-json":
+        exportEditorSource("json");
+        break;
+      case "export-source-md":
+        exportEditorSource("md");
         break;
       case "new":
         openEditor();
@@ -853,12 +1185,8 @@
     }
   });
   document.addEventListener("change", (event) => {
-    if (event.target.id === "tag-filter") {
-      tagFilter = event.target.value;
-      document.querySelector('[data-action="clear-tag-filter"]').hidden =
-        !tagFilter;
-      renderGrid();
-    }
+    if (event.target.id === "source-format")
+      changeSourceFormat(event.target.value);
     if (event.target.id === "sort") {
       sort = event.target.value;
       renderGrid();
@@ -876,6 +1204,25 @@
     }
   });
   document.addEventListener("keydown", (event) => {
+    if (
+      event.target.hasAttribute("data-drag-handle") &&
+      event.altKey &&
+      ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)
+    ) {
+      event.preventDefault();
+      const row = event.target.closest("[data-order-kind]"),
+        { orderKind: kind, orderKey: key, orderGroup: group } = row.dataset;
+      const sequence =
+          kind === "prompt"
+            ? filteredItems().map((p) => p.id)
+            : sequenceFor(kind, group),
+        index = sequence.indexOf(key),
+        step = ["ArrowLeft", "ArrowUp"].includes(event.key) ? -1 : 1;
+      if (sequence[index + step] !== undefined)
+        moveOrdered(kind, key, sequence[index + step], group);
+      return;
+    }
+
     if (
       event.target.id === "edit-tags" &&
       !event.isComposing &&
@@ -929,8 +1276,10 @@
   window.addEventListener("storage", (event) => {
     if (event.key !== core.storageKey || !event.newValue) return;
     try {
-      const fresh = JSON.parse(event.newValue);
-      fresh.prompts = core.parseImport(event.newValue);
+      const fresh = {
+        ...JSON.parse(event.newValue),
+        ...core.parseDocument(event.newValue),
+      };
       if (!Array.isArray(fresh.favorites)) return;
       state = fresh;
       language = locales[fresh.language] ? fresh.language : language;

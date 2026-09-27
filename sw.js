@@ -1,10 +1,10 @@
 /* Cache only this application's public files, within this registration's scope. */
 const SCOPE_URL = new URL(self.registration.scope);
 const CACHE_PREFIX = `myprompt:${SCOPE_URL.pathname}:`;
-const CACHE_NAME = `${CACHE_PREFIX}2026-09-27-v2-editing`;
+const CACHE_NAME = `${CACHE_PREFIX}2026-09-27-v2-layout`;
 const PRECACHE = [
   './', './index.html', './offline.html', './manifest.webmanifest',
-  './assets/core.js', './assets/i18n.js', './assets/prompts.js', './assets/app.js',
+  './assets/core.js', './assets/formats.js', './assets/i18n.js', './assets/prompts.js', './assets/app.js',
   './assets/app.css', './assets/favicon.svg',
   './app/prompt-template-generator.html', './app/prompt_lib.html',
   './app/azure_openai_guide.html', './app/copilot-guide.html',

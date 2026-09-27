@@ -9,7 +9,7 @@
 
   var KEY = 'myprompt.v2';
   var LEGACY_KEY = 'promptUIData';
-  var LIMITS = Object.freeze({ prompts: 5000, importBytes: 10 * 1024 * 1024, title: 160, description: 2000, body: 100000, category: 100, tags: 20, tag: 50 });
+  var LIMITS = Object.freeze({ prompts: 5000, importBytes: 10 * 1024 * 1024, title: 160, description: 2000, body: 100000, category: 100, tags: 20, tag: 50, section: 160, variables: 100, variable: 100 });
   var languages = Object.freeze([
     { code: 'ja', name: '日本語' }, { code: 'zh', name: '中文' },
     { code: 'en', name: 'English' }, { code: 'vi', name: 'Tiếng Việt' },
@@ -96,6 +96,62 @@
     result[index] = replacement[0];
     return normalizeTags(result);
   }
+  function textList(input, name, maximum, count) {
+    if (!Array.isArray(input) || input.length > count) throw fail(name + ' must contain up to ' + count + ' text items.');
+    var result = [];
+    var seen = new Set();
+    for (var i = 0; i < input.length; i += 1) {
+      var item = string(input[i], name + ' item', maximum, true);
+      if (!seen.has(item)) { seen.add(item); result.push(item); }
+    }
+    return result;
+  }
+  function normalizeLayout(input) {
+    if (input === undefined) input = {};
+    var value = record(input, 'Layout');
+    var categories = field(value, 'categoryOrder');
+    if (categories === undefined) categories = [];
+    if (!Array.isArray(categories) || categories.length > LIMITS.prompts) throw fail('Category order must contain up to ' + LIMITS.prompts + ' categories.');
+    var categoryOrder = [];
+    var categoryNames = new Set();
+    for (var i = 0; i < categories.length; i += 1) {
+      if (typeof categories[i] !== 'string') throw fail('Category order must contain text.');
+      var name = string(categories[i], 'Category name', LIMITS.category, false);
+      if (!categoryNames.has(name)) { categoryNames.add(name); categoryOrder.push(name); }
+    }
+    var rows = field(value, 'tagOrder');
+    if (rows === undefined) rows = [];
+    if (!Array.isArray(rows) || rows.length > LIMITS.prompts) throw fail('Tag order must contain up to ' + LIMITS.prompts + ' categories.');
+    var tagOrder = [];
+    var categoryRows = new Map();
+    for (var rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+      var row = record(rows[rowIndex], 'Tag order');
+      if (typeof field(row, 'category') !== 'string') throw fail('Tag order category must contain text.');
+      var category = string(row.category, 'Category name', LIMITS.category, false);
+      var tags = textList(field(row, 'tags'), 'Tag order', LIMITS.section, LIMITS.prompts);
+      if (!categoryRows.has(category)) {
+        var next = { category: category, tags: tags };
+        categoryRows.set(category, next);
+        tagOrder.push(next);
+      } else {
+        var existing = categoryRows.get(category);
+        existing.tags = textList(existing.tags.concat(tags), 'Tag order', LIMITS.section, LIMITS.prompts);
+      }
+    }
+    var ids = field(value, 'promptOrder');
+    if (ids === undefined) ids = [];
+    if (!Array.isArray(ids) || ids.length > LIMITS.prompts) throw fail('Prompt order must contain prompt ids.');
+    for (var idIndex = 0; idIndex < ids.length; idIndex += 1) {
+      if (!validId(ids[idIndex])) throw fail('Prompt order must contain prompt ids.');
+    }
+    return { categoryOrder: categoryOrder, tagOrder: tagOrder, promptOrder: Array.from(new Set(ids)) };
+  }
+  function reorder(list, fromIndex, toIndex) {
+    if (!Array.isArray(list) || !Number.isInteger(fromIndex) || !Number.isInteger(toIndex) || fromIndex < 0 || toIndex < 0 || fromIndex >= list.length || toIndex >= list.length) throw fail('Choose valid items to reorder.', 'INVALID_ORDER');
+    var result = list.slice();
+    result.splice(toIndex, 0, result.splice(fromIndex, 1)[0]);
+    return result;
+  }
   function validatePrompt(input) {
     var value = record(input, 'Prompt');
     var id = field(value, 'id');
@@ -107,7 +163,7 @@
     var tags = normalizeTags(tagInput);
     var createdAt = date(field(value, 'createdAt'), new Date().toISOString(), 'createdAt');
     var updatedAt = date(field(value, 'updatedAt'), createdAt, 'updatedAt');
-    return {
+    var result = {
       id: id,
       title: string(field(value, 'title'), 'Title', LIMITS.title, true),
       description: string(field(value, 'description'), 'Description', LIMITS.description, false),
@@ -117,6 +173,11 @@
       createdAt: createdAt,
       updatedAt: updatedAt
     };
+    if (own(value, 'section')) result.section = string(value.section, 'Section', LIMITS.section, false);
+    ['variables', 'variableOrder'].forEach(function (name) {
+      if (own(value, name)) result[name] = textList(value[name], name, LIMITS.variable, LIMITS.variables);
+    });
+    return result;
   }
 
   // Each substitution uses a callback: user values such as "$&" stay literal.
@@ -152,7 +213,7 @@
     return (h >>> 0).toString(36);
   }
   function signature(prompt) {
-    return JSON.stringify([prompt.title, prompt.description, prompt.body, prompt.category, prompt.tags.slice().sort()]);
+    return JSON.stringify([prompt.title, prompt.description, prompt.body, prompt.category, prompt.section || '', prompt.tags, prompt.variables || [], prompt.variableOrder || []]);
   }
   function uniqueId(prompt, ids) {
     if (!ids.has(prompt.id)) { ids.add(prompt.id); return prompt; }
@@ -186,46 +247,82 @@
       throw fail('The file does not contain valid JSON.', 'INVALID_JSON');
     }
   }
-  function legacyEntries(input) {
+  function legacyDocument(input) {
     var root = record(input, 'Legacy library');
+    var outer = root;
     if (own(root, 'promptUIData')) root = record(root.promptUIData, 'promptUIData');
     else if (own(root, 'data')) root = record(root.data, 'data');
     if (!Array.isArray(root.cats) || root.cats.length > LIMITS.prompts) throw fail('Legacy library must contain categories.');
     var entries = [];
     var ids = new Set();
+    var layout = { categoryOrder: [], tagOrder: [], promptOrder: [] };
     root.cats.forEach(function (rawCategory, categoryIndex) {
       var category = record(rawCategory, 'Category');
-      var categoryName = string(field(category, 'name'), 'Category name', LIMITS.category, true);
-      if (!Array.isArray(category.tasks)) throw fail('Legacy category must contain tasks.');
+      if (typeof field(category, 'name') !== 'string') throw fail('Category name must be text.');
+      var categoryName = string(category.name, 'Category name', LIMITS.category, false);
+      if (!Array.isArray(category.tasks) || category.tasks.length > LIMITS.prompts) throw fail('Legacy category must contain up to ' + LIMITS.prompts + ' tasks.');
+      layout.categoryOrder.push(categoryName);
+      var categoryTags = { category: categoryName, tags: [] };
+      layout.tagOrder.push(categoryTags);
       category.tasks.forEach(function (rawTask, taskIndex) {
         var task = record(rawTask, 'Task');
-        var taskName = string(field(task, 'name'), 'Task name', LIMITS.title, true);
-        if (!Array.isArray(task.prompts)) throw fail('Legacy task must contain prompts.');
+        if (typeof field(task, 'name') !== 'string') throw fail('Task name must be text.');
+        var taskName = string(task.name, 'Task name', LIMITS.section, false);
+        if (taskName) categoryTags.tags.push(taskName);
+        if (!Array.isArray(task.prompts) || task.prompts.length > LIMITS.prompts) throw fail('Legacy task must contain up to ' + LIMITS.prompts + ' prompts.');
+        var metadata = field(task, 'promptMeta');
+        if (metadata !== undefined && (!Array.isArray(metadata) || metadata.length > LIMITS.prompts)) throw fail('Prompt metadata must be an array.');
         task.prompts.forEach(function (body, promptIndex) {
           if (entries.length >= LIMITS.prompts) throw fail('Too many prompts.');
           var categoryId = field(category, 'id');
           var taskId = field(task, 'id');
           var titleSuffix = task.prompts.length > 1 ? ' · ' + (promptIndex + 1) : '';
-          var prompt = validatePrompt({
-            id: 'legacy-' + hash(JSON.stringify([categoryId === undefined ? categoryIndex : categoryId, taskId === undefined ? taskIndex : taskId, promptIndex, body])),
-            title: taskName.slice(0, LIMITS.title - titleSuffix.length) + titleSuffix,
+          var meta = metadata && metadata[promptIndex] !== undefined ? record(metadata[promptIndex], 'Prompt metadata') : {};
+          var title = taskName.slice(0, LIMITS.title - titleSuffix.length) + titleSuffix;
+          if (own(meta, 'title') && (!taskName || field(meta, 'section') === taskName)) title = meta.title;
+          if (!title) title = 'Prompt ' + (promptIndex + 1);
+          var source = {
+            id: field(meta, 'id') === undefined ? 'legacy-' + hash(JSON.stringify([categoryId === undefined ? categoryIndex : categoryId, taskId === undefined ? taskIndex : taskId, promptIndex, body])) : meta.id,
+            title: title,
             category: categoryName,
-            body: body
+            body: body,
+            description: own(meta, 'description') ? meta.description : field(task, 'description')
+          };
+          if (taskName || own(meta, 'section')) source.section = taskName;
+          ['tags', 'variables', 'variableOrder'].forEach(function (name) {
+            if (own(meta, name)) source[name] = meta[name];
+            else if (own(task, name)) source[name] = task[name];
           });
+          ['createdAt', 'updatedAt'].forEach(function (name) { if (own(meta, name)) source[name] = meta[name]; });
+          var prompt = validatePrompt(source);
           entries.push({ prompt: uniqueId(prompt, ids), oldKey: String(categoryId) + '|' + String(taskId) + '|' + hash(body) });
+          layout.promptOrder.push(prompt.id);
         });
       });
     });
-    return entries;
+    var declaredLayout = own(outer, 'layout') ? outer.layout : own(root, 'layout') ? root.layout : layout;
+    return { entries: entries, layout: normalizeLayout(declaredLayout), root: root };
   }
-  function parseImport(text) {
+  function parseDocument(text) {
     var value = record(parseJSON(text), 'Import');
     if (own(value, 'prompts')) {
       if (value.version !== 2) throw fail('Unsupported library version.');
-      return normalizePrompts(value.prompts);
+      var normalized = normalizeState(value);
+      return { prompts: normalized.prompts, layout: normalized.layout, favorites: normalized.favorites, language: normalized.language, format: 'v2' };
     }
-    return legacyEntries(value).map(function (entry) { return entry.prompt; });
+    var legacy = legacyDocument(value);
+    var legacyFavorites = field(value, 'favorites');
+    if (legacyFavorites === undefined) legacyFavorites = field(legacy.root, 'favorites');
+    if (legacyFavorites === undefined) legacyFavorites = [];
+    if (!Array.isArray(legacyFavorites) || legacyFavorites.length > LIMITS.prompts || legacyFavorites.some(function (key) { return typeof key !== 'string'; })) throw fail('Favorites must contain prompt ids.');
+    var oldKeys = new Map(legacy.entries.map(function (entry) { return [entry.oldKey, entry.prompt.id]; }));
+    var favorites = legacyFavorites.map(function (key) { return oldKeys.get(key) || key; }).filter(validId);
+    var language = field(value, 'language');
+    if (language === undefined) language = field(legacy.root, 'language');
+    if (!languages.some(function (entry) { return entry.code === language; })) language = 'ja';
+    return { prompts: legacy.entries.map(function (entry) { return entry.prompt; }), layout: legacy.layout, favorites: Array.from(new Set(favorites)), language: language, format: 'legacy' };
   }
+  function parseImport(text) { return parseDocument(text).prompts; }
   function mergeImport(existing, incoming) {
     var result = normalizePrompts(existing);
     var incomingNormalized = normalizePrompts(incoming);
@@ -253,7 +350,7 @@
   function mergePrompts(existing, incoming) {
     return mergeImport(existing, incoming).prompts;
   }
-  function emptyState() { return { version: 2, prompts: [], favorites: [], language: 'ja' }; }
+  function emptyState() { return { version: 2, prompts: [], favorites: [], language: 'ja', layout: normalizeLayout() }; }
   function normalizeState(input) {
     var value = record(input, 'Library');
     if (value.version !== 2) throw fail('Unsupported library version.');
@@ -264,7 +361,7 @@
     // Favorites may point at the built-in catalog, which is not persisted in prompts.
     var language = field(value, 'language');
     if (!languages.some(function (entry) { return entry.code === language; })) language = 'ja';
-    return { version: 2, prompts: prompts, favorites: Array.from(new Set(favorites)), language: language };
+    return { version: 2, prompts: prompts, favorites: Array.from(new Set(favorites)), language: language, layout: normalizeLayout(field(value, 'layout')) };
   }
   function clone(state) { return JSON.parse(JSON.stringify(state)); }
   function storageError(error, code) {
@@ -320,8 +417,10 @@
         var oldLanguage = target.getItem('ui_lang');
         if (languages.some(function (entry) { return entry.code === oldLanguage; })) memory.language = oldLanguage;
         if (legacy === null) return clone(memory);
-        var entries = legacyEntries(parseJSON(legacy));
+        var migrated = legacyDocument(parseJSON(legacy));
+        var entries = migrated.entries;
         memory.prompts = entries.map(function (entry) { return entry.prompt; });
+        memory.layout = migrated.layout;
         var favoriteError = null;
         try {
           var oldFavorites = target.getItem('promptFavorites');
@@ -351,7 +450,8 @@
     languages: languages, limits: LIMITS, storageKey: KEY,
     extractVariables: extractVariables, fillVariables: fillVariables,
     tagIdentity: tagIdentity, normalizeTags: normalizeTags, renameTag: renameTag,
-    validatePrompt: validatePrompt, parseImport: parseImport,
+    validatePrompt: validatePrompt, parseImport: parseImport, parseDocument: parseDocument,
+    normalizeLayout: normalizeLayout, reorder: reorder,
     mergePrompts: mergePrompts, mergeImport: mergeImport, createStore: createStore
   });
 });

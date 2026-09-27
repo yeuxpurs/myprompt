@@ -39,6 +39,15 @@ for (const item of catalog) {
     assert.equal(core.fillVariables(localized.body, {}), localized.body, `${item.id}/${language}: missing variables remain visible`);
   }
 }
+// A translated tag must refer to one stable filter identity, including on personal copies.
+const aliases = new Map();
+for (const item of catalog) for (const translated of Object.values(item.translations)) {
+  translated.tags.forEach((label, index) => {
+    const alias = core.tagIdentity(label), key = core.tagIdentity(item.tags[index]);
+    assert.ok(!aliases.has(alias) || aliases.get(alias) === key, `ambiguous translated tag: ${label}`);
+    aliases.set(alias, key);
+  });
+}
 for (const category of categoryCodes) assert.ok(catalog.some(item => item.category === category), `empty category: ${category}`);
 
 function placeholders(value) { return [...value.matchAll(/(?<!\{)\{([a-zA-Z][a-zA-Z0-9_]*)\}(?!\})/g)].map(match => match[1]).sort(); }
@@ -95,7 +104,7 @@ for (const file of htmlFiles) {
   }
 }
 const scripts = [...read('index.html').matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["']/gi)].map(match => match[1]);
-assert.deepEqual(scripts, ['assets/core.js', 'assets/i18n.js', 'assets/prompts.js', 'assets/app.js'], 'application dependency load order');
+assert.deepEqual(scripts, ['assets/core.js', 'assets/formats.js', 'assets/i18n.js', 'assets/prompts.js', 'assets/app.js'], 'application dependency load order');
 const manifest = JSON.parse(read('manifest.webmanifest'));
 for (const reference of [manifest.start_url, manifest.scope, ...manifest.icons.map(icon => icon.src)]) checkReference('manifest.webmanifest', reference);
 assert.ok(manifest.icons.some(icon => icon.src.endsWith('.svg') && icon.type === 'image/svg+xml'), 'manifest references actual SVG icon');
