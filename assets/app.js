@@ -22,6 +22,9 @@
     selected = null,
     variables = Object.create(null),
     deleted = null;
+  let managing = false, selectedIds = new Set(), duplicateIds = new Set(), duplicateSnapshot = new Map();
+  let duplicateMode = "body", pendingDelete = [], pendingDeleteSnapshot = new Map(), editorSnapshot = null;
+  const deleteBackupKey = "myprompt.delete-backup";
   let toastTimer,
     generated = "",
     draft = loadDraft(),
@@ -53,6 +56,7 @@
     guide: '<path d="M3 4h7l2 2 2-2h7v15h-7l-2 2-2-2H3zM12 6v15"/>',
     star: '<path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.3-5.7-3-5.7 3 1.1-6.3-4.6-4.5 6.4-.9z"/>',
     folder: '<path d="M3 6h7l2 3h9v11H3zM3 6V4h7l2 2h9v3"/>',
+    trash: '<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     arrow: '<path d="M4 12h16m-6-6 6 6-6 6"/>',
     search: '<circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/>',
@@ -113,7 +117,7 @@
   }
   function items() {
     return [
-      ...catalog.map((item) => ({
+      ...catalog.filter((item) => !state.hiddenBuiltIns.includes(item.id) && !state.prompts.some((p) => p.id === item.id)).map((item) => ({
         ...item,
         ...item.translations[language],
         builtIn: true,
@@ -289,7 +293,7 @@
       "beforeend",
       `${home ? `<div class="section-head"><div><h2>${escape(t("featured"))}</h2><p>${escape(t("featuredDescription"))}</p></div><a href="#library">${escape(t("viewAll"))}${icon("arrow")}</a></div>` : ""}
       <div class="tools-row"><div class="search-box">${icon("search")}<input id="search" type="search" aria-label="${escape(t("searchPlaceholder"))}" placeholder="${escape(t("searchPlaceholder"))}" value="${escape(query)}" autocomplete="off"><kbd aria-hidden="true">/</kbd></div>${home ? "" : `<button class="btn primary" data-action="new">${icon("plus")}${escape(t("addPrompt"))}</button>`}</div>
-      ${filterRows()}<div class="result-meta"><span id="result-count" role="status"></span><select class="sort" id="sort" aria-label="${escape(t("sortLabel"))}"><option value="recommended" ${sort === "recommended" ? "selected" : ""}>${escape(t("promptOrder"))}</option><option value="newest" ${sort === "newest" ? "selected" : ""}>${escape(t("sortNewest"))}</option></select></div><div class="prompt-grid" id="prompt-grid"></div>`,
+      <div id="management-toolbar"></div>${filterRows()}<div class="result-meta"><span id="result-count" role="status"></span><select class="sort" id="sort" aria-label="${escape(t("sortLabel"))}"><option value="recommended" ${sort === "recommended" ? "selected" : ""}>${escape(t("promptOrder"))}</option><option value="newest" ${sort === "newest" ? "selected" : ""}>${escape(t("sortNewest"))}</option></select></div><div class="prompt-grid" id="prompt-grid"></div>`,
     );
     renderGrid();
   }
@@ -336,6 +340,9 @@
   function renderGrid() {
     const grid = document.getElementById("prompt-grid");
     if (!grid) return;
+    const availableIds = new Set(items().map((p) => p.id));
+    selectedIds = new Set([...selectedIds].filter((id) => availableIds.has(id)));
+    renderManagement();
     const list = filteredItems();
     document.getElementById("result-count").textContent = t("resultCount", {
       count: list.length,
@@ -344,9 +351,93 @@
       ? list.map(card).join("")
       : `<div class="empty">${icon("search")}<h3>${escape(t("noResults"))}</h3><p>${escape(t("noResultsHint"))}</p><button class="btn" data-action="reset">${escape(t("resetFilters"))}</button> <button class="btn primary" data-action="new">${escape(t("addPrompt"))}</button></div>`;
   }
+  function hasDeleteBackup() {
+    try { return !!localStorage.getItem(deleteBackupKey); } catch (_) { return false; }
+  }
+  function renderManagement() {
+    const toolbar = document.getElementById("management-toolbar");
+    if (!toolbar) return;
+    toolbar.innerHTML = `<div class="management-toolbar"><button class="btn" data-action="manage" aria-pressed="${managing}">${escape(t(managing ? "finishManaging" : "managePrompts"))}</button><button class="btn" data-action="review-duplicates">${icon("copy")}${escape(t("reviewDuplicates"))}</button>${hasDeleteBackup() ? `<button class="btn quiet" data-action="undo">${escape(t("restoreDeleted"))}</button>` : ""}${managing ? `<button class="btn quiet" data-action="select-visible">${escape(t("selectVisible"))}</button><button class="btn quiet" data-action="clear-selection">${escape(t("clearSelection"))}</button><span role="status">${escape(t("selectedCount", {count: selectedIds.size}))}</span><button class="btn danger" data-action="delete-selected" ${selectedIds.size ? "" : "disabled"}>${icon("trash")}${escape(t("deleteSelected"))}</button>` : ""}</div>`;
+  }
+  function openDuplicates() {
+    const groups = core.findDuplicateGroups(items(), duplicateMode);
+    duplicateSnapshot = new Map(groups.flat().map((p) => [p.id, JSON.stringify(p)]));
+    const available = new Set(groups.flat().map((p) => p.id));
+    duplicateIds = new Set([...duplicateIds].filter((id) => available.has(id)));
+    openDialog(dialogHeader(t("reviewDuplicates"), t("duplicatesDescription")) +
+      `<div class="dialog-content"><div class="management-toolbar"><label for="duplicate-mode">${escape(t("duplicateMode"))}</label><select id="duplicate-mode"><option value="body" ${duplicateMode === "body" ? "selected" : ""}>${escape(t("sameBody"))}</option><option value="title" ${duplicateMode === "title" ? "selected" : ""}>${escape(t("sameTitle"))}</option></select>${duplicateMode === "body" && groups.length ? `<button class="btn" data-action="select-extra-copies">${escape(t("selectExtraCopies"))}</button>` : ""}</div><p class="duplicate-summary">${escape(t("duplicateGroups", {count: groups.length}))}</p>${groups.length ? groups.map((group, index) => `<section class="duplicate-group"><h3>${escape(t("duplicateGroup", {number: index + 1, count: group.length}))}</h3>${group.map((p) => `<div class="duplicate-row"><label class="selection-label"><input type="checkbox" data-duplicate-id="${escape(p.id)}" ${duplicateIds.has(p.id) ? "checked" : ""}><span><strong>${escape(p.title)}</strong><small>${escape(categoryName(p.category))}${p.section ? " / " + escape(p.section) : ""} · ${escape(t(p.builtIn ? "curated" : catalog.some((item) => item.id === p.id) ? "customizedTemplate" : "custom"))}${state.favorites.includes(p.id) ? " ★" : ""}</small></span></label>${tagChips(p.tags)}<details><summary>${escape(t("previewBody"))}</summary><pre>${escape(p.body)}</pre></details></div>`).join("")}</section>`).join("") : `<p class="empty">${escape(t("noDuplicates"))}</p>`}<p id="duplicate-error" class="error-text" role="alert"></p></div><footer class="dialog-actions duplicate-footer"><span id="duplicate-selected-count" class="push-left" role="status"></span><button class="btn" data-action="close">${escape(t("close"))}</button><button class="btn danger" data-action="delete-duplicates">${escape(t("deleteSelected"))}</button></footer>`);
+    updateDuplicateSelection();
+  }
+  function updateDuplicateSelection() {
+    document.getElementById("duplicate-selected-count").textContent = t("selectedCount", {count: duplicateIds.size});
+    dialog.querySelector('[data-action="delete-duplicates"]').disabled = !duplicateIds.size;
+    document.getElementById("duplicate-error").textContent = "";
+  }
+  function requestDelete(ids) {
+    pendingDelete = [...new Set(ids)].filter((id) => itemById(id));
+    if (!pendingDelete.length) { notify(t("noSelection")); return; }
+    pendingDeleteSnapshot = new Map(pendingDelete.map((id) => [id, JSON.stringify(itemById(id))]));
+    openDialog(dialogHeader(t("deleteSelected"), t("bulkDeleteConfirm", {count: pendingDelete.length})) +
+      `<div class="dialog-content"><ul>${pendingDelete.map((id) => `<li>${escape(itemById(id).title)}</li>`).join("")}</ul><p class="hint">${escape(t("localNote"))}</p><p id="deletion-error" class="error-text" role="alert"></p></div><footer class="dialog-actions"><button class="btn" data-action="close">${escape(t("cancel"))}</button><button class="btn danger" data-action="confirm-delete">${escape(t("delete"))}</button></footer>`);
+    dialog.querySelector('[data-action="close"]')?.focus();
+  }
+  function deletePending() {
+    const ids = pendingDelete.filter((id) => itemById(id));
+    if (!ids.length) { dialog.close(); render(); return; }
+    if (ids.some((id) => JSON.stringify(itemById(id)) !== pendingDeleteSnapshot.get(id))) {
+      requestDelete(ids);
+      document.getElementById("deletion-error").textContent = t("staleEditor");
+      return;
+    }
+    let result, previousBackup;
+    try {
+      previousBackup = localStorage.getItem(deleteBackupKey);
+      result = core.removePrompts(state, ids, catalog.map((p) => p.id));
+      // A deletion only proceeds once an undo record has been stored successfully.
+      localStorage.setItem(deleteBackupKey, JSON.stringify(result.undo));
+    } catch (_) {
+      document.getElementById("deletion-error").textContent = t("deleteBackupError");
+      return;
+    }
+    if (!store.save(result.state)) {
+      store.save(state);
+      try {
+        if (previousBackup === null) localStorage.removeItem(deleteBackupKey);
+        else localStorage.setItem(deleteBackupKey, previousBackup);
+      } catch (_) {}
+      document.getElementById("deletion-error").textContent = t("storageError");
+      return;
+    }
+    state = result.state;
+    deleted = result.undo;
+    selectedIds.clear();
+    duplicateIds.clear();
+    pendingDelete = [];
+    dialog.close();
+    render();
+    notify(t("deletedCount", {count: ids.length}), true);
+  }
+  function undoDeletion() {
+    try {
+      const raw = localStorage.getItem(deleteBackupKey);
+      const undo = raw ? JSON.parse(raw) : deleted;
+      if (!undo) return;
+      const next = core.restoreDeleted(state, undo);
+      if (!store.save(next)) { store.save(state); throw new Error("storage"); }
+      state = next;
+      // Successful restoration is idempotent if removing the backup is unavailable.
+      try { localStorage.removeItem(deleteBackupKey); } catch (_) {}
+      deleted = null;
+      if (dialog.open) dialog.close();
+      render();
+      notify(t("saved"));
+    } catch (_) {
+      notify(t("storageError"));
+    }
+  }
   function card(p) {
     const favorite = state.favorites.includes(p.id);
-    return `<article class="prompt-card" ${orderAttrs("prompt", p.id)}><div class="card-top"><span class="category-icon ${categories.includes(p.category) ? p.category : ""}">${icon(p.category)}</span><div class="card-controls">${dragHandle(p.title)}<button class="icon-button quick-edit" data-edit-prompt="${escape(p.id)}" aria-label="${escape(t(p.builtIn ? "editCopy" : "edit"))}: ${escape(p.title)}">${icon("studio")}</button><button class="favorite-button" data-favorite="${escape(p.id)}" aria-label="${escape(t(favorite ? "unfavorite" : "favorite"))}: ${escape(p.title)}" aria-pressed="${favorite}">${icon("star")}</button></div></div><h3><button class="card-title" data-open="${escape(p.id)}">${escape(p.title)}</button></h3><p class="card-description">${escape(p.description || p.body.slice(0, 120))}</p>${p.section ? `<button class="section-badge" data-filter-tag="${escape(p.section)}">${escape(p.section)}</button>` : ""}${tagChips(p.tags, true, p)}<div class="card-bottom"><span class="tag">${escape(categoryName(p.category))} · ${escape(t(p.builtIn ? "curated" : "custom"))}</span><button data-open="${escape(p.id)}">${escape(t("usePrompt"))}${icon("arrow")}</button></div></article>`;
+    return `<article class="prompt-card ${selectedIds.has(p.id) ? "is-selected" : ""}" ${orderAttrs("prompt", p.id)}>${managing ? `<label class="selection-label"><input type="checkbox" data-select-prompt="${escape(p.id)}" ${selectedIds.has(p.id) ? "checked" : ""}>${escape(t("selectPrompt", {title: p.title}))}</label>` : ""}<div class="card-top"><span class="category-icon ${categories.includes(p.category) ? p.category : ""}">${icon(p.category)}</span><div class="card-controls">${dragHandle(p.title)}<button class="icon-button quick-edit" data-edit-prompt="${escape(p.id)}" aria-label="${escape(t("edit"))}: ${escape(p.title)}">${icon("studio")}</button><button class="icon-button danger" data-delete-prompt="${escape(p.id)}" aria-label="${escape(t("delete"))}: ${escape(p.title)}">${icon("trash")}</button><button class="favorite-button" data-favorite="${escape(p.id)}" aria-label="${escape(t(favorite ? "unfavorite" : "favorite"))}: ${escape(p.title)}" aria-pressed="${favorite}">${icon("star")}</button></div></div><h3><button class="card-title" data-open="${escape(p.id)}">${escape(p.title)}</button></h3><p class="card-description">${escape(p.description || p.body.slice(0, 120))}</p>${p.section ? `<button class="section-badge" data-filter-tag="${escape(p.section)}">${escape(p.section)}</button>` : ""}${tagChips(p.tags, true, p)}<div class="card-bottom"><span class="tag">${escape(categoryName(p.category))} · ${escape(t(p.builtIn ? "curated" : catalog.some((item) => item.id === p.id) ? "customizedTemplate" : "custom"))}</span><button data-open="${escape(p.id)}">${escape(t("usePrompt"))}${icon("arrow")}</button></div></article>`;
   }
   function workflowsPage() {
     return (
@@ -392,7 +483,7 @@
     );
     openDialog(
       dialogHeader(selected.title, selected.description) +
-        `<div class="dialog-content"><div class="detail-metadata"><span class="tag">${escape(categoryName(selected.category))}</span>${tagChips(selected.tags)}</div><div class="detail-grid ${names.length ? "" : "single"}">${names.length ? `<section><p class="field-label">${escape(t("variables"))}</p><p class="hint" style="margin:8px 0 20px">${escape(t("detailHint"))}</p>${names.map((name, index) => `<div class="field"><label for="var-${index}">${escape(name)}</label><textarea id="var-${index}" data-variable="${escape(name)}" placeholder="${escape(t("variablePlaceholder", { name }))}" maxlength="100000" rows="2"></textarea></div>`).join("")}</section>` : ""}<section><p class="field-label">${escape(t("preview"))}</p><pre class="preview-text" id="detail-preview"></pre><p id="unresolved" class="unresolved"></p><div class="detail-actions"><button class="btn primary" data-action="copy-detail">${icon("copy")}${escape(t("copy"))}</button><a class="btn" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">${escape(t("openChatGPT"))} ↗</a></div><p class="privacy-hint">${escape(t("handoffHint"))}</p></section></div><div id="delete-confirm"></div></div><footer class="dialog-actions"><button class="btn quiet push-left" data-action="edit">${icon("studio")}${escape(t(selected.builtIn ? "editCopy" : "edit"))}</button>${!selected.builtIn ? `<button class="btn quiet danger" data-action="delete">${escape(t("delete"))}</button>` : ""}<button class="btn" data-action="duplicate">${icon("plus")}${escape(t("duplicate"))}</button><button class="btn" data-action="close">${escape(t("close"))}</button></footer>`,
+        `<div class="dialog-content"><div class="detail-metadata"><span class="tag">${escape(categoryName(selected.category))}</span>${tagChips(selected.tags)}</div><div class="detail-grid ${names.length ? "" : "single"}">${names.length ? `<section><p class="field-label">${escape(t("variables"))}</p><p class="hint" style="margin:8px 0 20px">${escape(t("detailHint"))}</p>${names.map((name, index) => `<div class="field"><label for="var-${index}">${escape(name)}</label><textarea id="var-${index}" data-variable="${escape(name)}" placeholder="${escape(t("variablePlaceholder", { name }))}" maxlength="100000" rows="2"></textarea></div>`).join("")}</section>` : ""}<section><p class="field-label">${escape(t("preview"))}</p><pre class="preview-text" id="detail-preview"></pre><p id="unresolved" class="unresolved"></p><div class="detail-actions"><button class="btn primary" data-action="copy-detail">${icon("copy")}${escape(t("copy"))}</button><a class="btn" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">${escape(t("openChatGPT"))} ↗</a></div><p class="privacy-hint">${escape(t("handoffHint"))}</p></section></div><div id="delete-confirm"></div></div><footer class="dialog-actions"><button class="btn quiet push-left" data-action="edit">${icon("studio")}${escape(t("edit"))}</button><button class="btn quiet danger" data-action="delete">${escape(t("delete"))}</button><button class="btn" data-action="duplicate">${icon("plus")}${escape(t("duplicate"))}</button><button class="btn" data-action="close">${escape(t("close"))}</button></footer>`,
     );
     updateDetail();
   }
@@ -413,7 +504,8 @@
       section: tagFilter && !tagFilter.startsWith("tag:") ? tagFilter : "",
       tags: [],
     };
-    editorId = source && !source.builtIn && !duplicate ? source.id : null;
+    editorId = source && !duplicate ? source.id : null;
+    editorSnapshot = editorId ? JSON.stringify(itemById(editorId)) : null;
     editorMetadata = Object.fromEntries(
       ["variables", "variableOrder"]
         .filter((key) => p[key] !== undefined)
@@ -428,8 +520,8 @@
     ];
     openDialog(
       dialogHeader(
-        t(source?.builtIn ? "editCopy" : editorId ? "editTitle" : "newTitle"),
-        t(source?.builtIn ? "editCopyHint" : "variablesHint"),
+        t(editorId ? "editTitle" : "newTitle"),
+        t(source?.builtIn && !duplicate ? "builtinEditHint" : "variablesHint"),
       ) +
         `<form id="editor-form"><div class="dialog-content">
       <div class="field"><label for="edit-title">${escape(t("titleLabel"))}</label><input id="edit-title" name="title" value="${escape(p.title)}" placeholder="${escape(t("titlePlaceholder"))}" maxlength="160" required></div>
@@ -441,7 +533,7 @@
         .join(
           "",
         )}</datalist><span class="hint" id="tags-hint">${escape(t("tagsHint"))}</span><span class="hint" id="tag-edit-status" role="status"></span></div>
-      <div class="field"><label for="edit-body">${escape(t("bodyLabel"))}</label><textarea class="code" id="edit-body" name="body" placeholder="${escape(t("bodyPlaceholder"))}" maxlength="100000" required>${escape(p.body)}</textarea><span class="hint">${escape(t("variablesHint"))}</span></div><p class="error-text" id="editor-error" role="alert"></p></div>
+      <div class="field"><label for="edit-body">${escape(t("bodyLabel"))}</label><textarea class="code" id="edit-body" name="body" placeholder="${escape(t("bodyPlaceholder"))}" maxlength="100000" required>${escape(p.body)}</textarea><span class="hint">${escape(t("variablesHint"))}</span></div><div id="save-warning" class="save-warning" role="status" hidden></div><p class="error-text" id="editor-error" role="alert"></p></div>
       <footer class="dialog-actions"><button class="btn" type="button" data-action="close">${escape(t("cancel"))}</button><button class="btn primary" type="submit">${icon("check")}${escape(t("save"))}</button></footer></form>`,
     );
     renderTagEditor();
@@ -515,7 +607,11 @@
     renderTagEditor();
     document.getElementById("edit-tags").focus();
   }
-  function saveEditor(form) {
+  function saveEditor(form, allowDuplicate = false) {
+    if (editorId && JSON.stringify(itemById(editorId)) !== editorSnapshot) {
+      document.getElementById("editor-error").textContent = t("staleEditor");
+      return;
+    }
     const fields = new FormData(form);
     if (!commitTagInput()) return;
     const tags = [...editorTags];
@@ -535,6 +631,7 @@
       const value = core.validatePrompt({
         ...editorMetadata,
         ...(existing || {}),
+        id: editorId || undefined,
         title: fields.get("title"),
         description: fields.get("description"),
         category: categoryValue,
@@ -543,16 +640,31 @@
         body: fields.get("body"),
         updatedAt: new Date().toISOString(),
       });
-      if (existing)
-        state.prompts = state.prompts.map((p) =>
-          p.id === editorId ? value : p,
-        );
-      else {
-        if (state.prompts.length >= core.limits.prompts)
-          throw new Error("limit");
-        state.prompts.push(value);
+      const matches = core.findDuplicateGroups([...items().filter((p) => p.id !== value.id), value])
+        .find((group) => group.some((p) => p.id === value.id));
+      if (!allowDuplicate && matches) {
+        const warning = document.getElementById("save-warning");
+        warning.hidden = false;
+        warning.innerHTML = `<p>${escape(t("duplicateSaveWarning", {count: matches.length - 1}))}</p><ul>${matches.filter((p) => p.id !== value.id).map((p) => `<li>${escape(p.title)} · ${escape(categoryName(p.category))}</li>`).join("")}</ul><button type="button" class="btn" data-action="save-anyway">${escape(t("saveAnyway"))}</button>`;
+        return;
       }
-      const saved = persist();
+      if (!existing && state.prompts.length >= core.limits.prompts) {
+        document.getElementById("editor-error").textContent = t("limitError");
+        return;
+      }
+      const next = {
+        ...state,
+        language,
+        prompts: existing ? state.prompts.map((p) => p.id === editorId ? value : p) : [...state.prompts, value],
+        hiddenBuiltIns: state.hiddenBuiltIns.filter((id) => id !== value.id),
+      };
+      if (!store.save(next)) {
+        store.save(state);
+        document.getElementById("editor-error").textContent = t("storageError");
+        return;
+      }
+      state = next;
+      const saved = true;
       dialog.close();
       query = "";
       category = "";
@@ -656,23 +768,8 @@
     downloadSource(formats.serialize(workspaceDocument(), format), format);
   }
   function prepareDocument(parsed) {
-    const renamedIds = new Map();
-    const prompts = parsed.prompts.map((p) => {
-      if (!catalog.some((item) => item.id === p.id)) return p;
-      const renamed = core.validatePrompt({ ...p, id: undefined });
-      renamedIds.set(p.id, renamed.id);
-      return renamed;
-    });
-    const remap = (id) => renamedIds.get(id) || id;
-    return {
-      ...parsed,
-      prompts,
-      favorites: parsed.favorites.map(remap),
-      layout: {
-        ...parsed.layout,
-        promptOrder: parsed.layout.promptOrder.map(remap),
-      },
-    };
+    // Catalog IDs intentionally identify personalized replacements of built-in templates.
+    return { ...parsed, hiddenBuiltIns: parsed.hiddenBuiltIns || [] };
   }
   function mergeLayout(incoming, existing, remap) {
     const rows = new Map(
@@ -716,6 +813,7 @@
       const next = {
         ...state,
         prompts: merged.prompts,
+        hiddenBuiltIns: [...new Set([...state.hiddenBuiltIns, ...incoming.hiddenBuiltIns])],
         favorites: [
           ...new Set([...state.favorites, ...incoming.favorites.map(remap)]),
         ].filter((id) => allowed.has(id)),
@@ -807,6 +905,7 @@
     const next = {
       ...state,
       prompts: parsed.prompts,
+      hiddenBuiltIns: parsed.hiddenBuiltIns,
       layout: parsed.layout,
       favorites: parsed.favorites.filter((id) => allowed.has(id)),
       language,
@@ -1023,7 +1122,11 @@
     }
     if (target.dataset.editPrompt) {
       const p = itemById(target.dataset.editPrompt);
-      if (p) openEditor(p, p.builtIn);
+      if (p) openEditor(p);
+      return;
+    }
+    if (target.dataset.deletePrompt) {
+      requestDelete([target.dataset.deletePrompt]);
       return;
     }
     if (target.dataset.open) {
@@ -1099,7 +1202,7 @@
         copy(core.fillVariables(selected.body, variables));
         break;
       case "edit":
-        openEditor(selected, selected.builtIn);
+        openEditor(selected);
         break;
       case "duplicate":
         openEditor(
@@ -1107,35 +1210,61 @@
           true,
         );
         break;
-      case "delete":
-        document.getElementById("delete-confirm").innerHTML =
-          `<div class="inline-delete"><span>${escape(t("deleteConfirm"))}</span><button class="btn danger" data-action="confirm-delete">${escape(t("delete"))}</button><button class="btn" data-action="cancel-delete">${escape(t("cancel"))}</button></div>`;
+      case "manage":
+        managing = !managing;
+        if (!managing) selectedIds.clear();
+        renderGrid();
         break;
-      case "cancel-delete":
-        document.getElementById("delete-confirm").innerHTML = "";
+      case "select-visible":
+        filteredItems().forEach((p) => selectedIds.add(p.id));
+        renderGrid();
         break;
-      case "confirm-delete": {
-        deleted = {
-          prompt: selected,
-          favorite: state.favorites.includes(selected.id),
-        };
-        state.prompts = state.prompts.filter((p) => p.id !== selected.id);
-        state.favorites = state.favorites.filter((id) => id !== selected.id);
-        const ok = persist();
-        dialog.close();
-        render();
-        if (ok) notify(t("deleted"), true);
+      case "clear-selection":
+        selectedIds.clear();
+        renderGrid();
+        break;
+      case "delete-selected":
+        requestDelete([...selectedIds]);
+        break;
+      case "review-duplicates":
+        duplicateIds.clear();
+        openDuplicates();
+        break;
+      case "select-extra-copies":
+        duplicateIds.clear();
+        core.findDuplicateGroups(items(), duplicateMode).forEach((group) => {
+          const keep = group.find((p) => state.favorites.includes(p.id)) || group[0];
+          group.forEach((p) => { if (p.id !== keep.id) duplicateIds.add(p.id); });
+        });
+        openDuplicates();
+        break;
+      case "delete-duplicates": {
+        const groups = core.findDuplicateGroups(items(), duplicateMode);
+        const currentIds = new Set(groups.flat().map((p) => p.id));
+        if ([...duplicateIds].some((id) => !currentIds.has(id) || JSON.stringify(itemById(id)) !== duplicateSnapshot.get(id))) {
+          duplicateIds.clear();
+          openDuplicates();
+          document.getElementById("duplicate-error").textContent = t("staleEditor");
+          break;
+        }
+        if (groups.some((group) => group.every((p) => duplicateIds.has(p.id)))) {
+          document.getElementById("duplicate-error").textContent = t("keepOne");
+          break;
+        }
+        requestDelete([...duplicateIds]);
         break;
       }
+      case "save-anyway":
+        saveEditor(document.getElementById("editor-form"), true);
+        break;
+      case "delete":
+        requestDelete([selected.id]);
+        break;
+      case "confirm-delete":
+        deletePending();
+        break;
       case "undo":
-        if (deleted) {
-          state.prompts = core.mergePrompts(state.prompts, [deleted.prompt]);
-          if (deleted.favorite) state.favorites.push(deleted.prompt.id);
-          const ok = persist();
-          deleted = null;
-          render();
-          if (ok) notify(t("saved"));
-        }
+        undoDeletion();
         break;
       case "copy-studio":
         copy(generated);
@@ -1185,6 +1314,23 @@
     }
   });
   document.addEventListener("change", (event) => {
+    if (event.target.matches("[data-select-prompt]")) {
+      const id = event.target.dataset.selectPrompt;
+      if (event.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+      event.target.closest(".prompt-card").classList.toggle("is-selected", event.target.checked);
+      renderManagement();
+    }
+    if (event.target.matches("[data-duplicate-id]")) {
+      const id = event.target.dataset.duplicateId;
+      if (event.target.checked) duplicateIds.add(id); else duplicateIds.delete(id);
+      updateDuplicateSelection();
+    }
+    if (event.target.id === "duplicate-mode") {
+      duplicateMode = event.target.value;
+      duplicateIds.clear();
+      openDuplicates();
+      document.getElementById("duplicate-mode").focus();
+    }
     if (event.target.id === "source-format")
       changeSourceFormat(event.target.value);
     if (event.target.id === "sort") {
@@ -1268,12 +1414,15 @@
       "";
     tagFilter = "";
     query = "";
+    selectedIds.clear();
+    managing = false;
     if (dialog.open) dialog.close();
     render();
     window.scrollTo(0, 0);
   });
   // Other tabs may add prompts; read their state before subsequent edits.
   window.addEventListener("storage", (event) => {
+    if (event.key === deleteBackupKey) { renderManagement(); return; }
     if (event.key !== core.storageKey || !event.newValue) return;
     try {
       const fresh = {

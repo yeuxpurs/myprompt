@@ -48,6 +48,14 @@
   function validId(value) {
     return typeof value === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(value) && !FORBIDDEN.has(value);
   }
+  function idList(value, name) {
+    if (value === undefined) return [];
+    if (!Array.isArray(value) || value.length > LIMITS.prompts) throw fail(name + ' must contain up to ' + LIMITS.prompts + ' prompt ids.');
+    for (var i = 0; i < value.length; i += 1) {
+      if (!validId(value[i])) throw fail(name + ' must contain valid prompt ids.');
+    }
+    return Array.from(new Set(value));
+  }
   function newId() {
     if (typeof globalThis !== 'undefined' && globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
       return 'p-' + globalThis.crypto.randomUUID();
@@ -308,7 +316,7 @@
     if (own(value, 'prompts')) {
       if (value.version !== 2) throw fail('Unsupported library version.');
       var normalized = normalizeState(value);
-      return { prompts: normalized.prompts, layout: normalized.layout, favorites: normalized.favorites, language: normalized.language, format: 'v2' };
+      return { prompts: normalized.prompts, layout: normalized.layout, favorites: normalized.favorites, hiddenBuiltIns: normalized.hiddenBuiltIns, language: normalized.language, format: 'v2' };
     }
     var legacy = legacyDocument(value);
     var legacyFavorites = field(value, 'favorites');
@@ -320,7 +328,9 @@
     var language = field(value, 'language');
     if (language === undefined) language = field(legacy.root, 'language');
     if (!languages.some(function (entry) { return entry.code === language; })) language = 'ja';
-    return { prompts: legacy.entries.map(function (entry) { return entry.prompt; }), layout: legacy.layout, favorites: Array.from(new Set(favorites)), language: language, format: 'legacy' };
+    var hiddenBuiltIns = field(value, 'hiddenBuiltIns');
+    if (hiddenBuiltIns === undefined) hiddenBuiltIns = field(legacy.root, 'hiddenBuiltIns');
+    return { prompts: legacy.entries.map(function (entry) { return entry.prompt; }), layout: legacy.layout, favorites: Array.from(new Set(favorites)), hiddenBuiltIns: idList(hiddenBuiltIns, 'Hidden built-ins'), language: language, format: 'legacy' };
   }
   function parseImport(text) { return parseDocument(text).prompts; }
   function mergeImport(existing, incoming) {
@@ -350,18 +360,109 @@
   function mergePrompts(existing, incoming) {
     return mergeImport(existing, incoming).prompts;
   }
-  function emptyState() { return { version: 2, prompts: [], favorites: [], language: 'ja', layout: normalizeLayout() }; }
+  function emptyState() { return { version: 2, prompts: [], favorites: [], hiddenBuiltIns: [], language: 'ja', layout: normalizeLayout() }; }
   function normalizeState(input) {
     var value = record(input, 'Library');
     if (value.version !== 2) throw fail('Unsupported library version.');
     var prompts = normalizePrompts(value.prompts);
-    var favorites = field(value, 'favorites');
-    if (favorites === undefined) favorites = [];
-    if (!Array.isArray(favorites) || favorites.length > LIMITS.prompts || favorites.some(function (id) { return !validId(id); })) throw fail('Favorites must contain prompt ids.');
+    var favorites = idList(field(value, 'favorites'), 'Favorites');
     // Favorites may point at the built-in catalog, which is not persisted in prompts.
     var language = field(value, 'language');
     if (!languages.some(function (entry) { return entry.code === language; })) language = 'ja';
-    return { version: 2, prompts: prompts, favorites: Array.from(new Set(favorites)), language: language, layout: normalizeLayout(field(value, 'layout')) };
+    return { version: 2, prompts: prompts, favorites: favorites, hiddenBuiltIns: idList(field(value, 'hiddenBuiltIns'), 'Hidden built-ins'), language: language, layout: normalizeLayout(field(value, 'layout')) };
+  }
+  // Body matching intentionally preserves case, indentation and internal whitespace.
+  // Groups contain the original records, so callers retain catalog/UI metadata.
+  function findDuplicateGroups(prompts, mode) {
+    if (!Array.isArray(prompts)) throw fail('Prompts must be an array.');
+    if (mode === undefined) mode = 'body';
+    if (mode !== 'body' && mode !== 'title') throw fail('Choose body or title matching.', 'INVALID_DUPLICATE_MODE');
+    var groups = new Map();
+    for (var i = 0; i < prompts.length; i += 1) {
+      var prompt = record(prompts[i], 'Prompt');
+      var value = field(prompt, mode);
+      if (typeof value !== 'string') throw fail('Duplicate matching needs text.');
+      var key = value.replace(/\r\n?/g, '\n').trim();
+      if (mode === 'title') key = key.normalize('NFC').toLowerCase();
+      if (!key) continue;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(prompt);
+    }
+    return Array.from(groups.values()).filter(function (group) { return group.length > 1; });
+  }
+  function removePrompts(input, ids, catalogIds) {
+    var state = normalizeState(input);
+    var selected = new Set(idList(ids, 'Selected prompts'));
+    var catalog = new Set(idList(catalogIds, 'Catalog prompts'));
+    var stored = new Set(state.prompts.map(function (prompt) { return prompt.id; }));
+    var hidden = new Set(state.hiddenBuiltIns);
+    var removedIds = Array.from(selected).filter(function (id) { return stored.has(id) || catalog.has(id) && !hidden.has(id); });
+    var removed = new Set(removedIds);
+    var undo = { prompts: [], removedIds: removedIds, hiddenBuiltInsAdded: [], favorites: [], promptOrder: [] };
+    state.prompts = state.prompts.filter(function (prompt, index) {
+      if (!removed.has(prompt.id)) return true;
+      undo.prompts.push({ prompt: prompt, index: index });
+      return false;
+    });
+    function removeReferences(list, snapshots) {
+      return list.filter(function (id, index) {
+        if (!removed.has(id)) return true;
+        snapshots.push({ id: id, index: index });
+        return false;
+      });
+    }
+    state.favorites = removeReferences(state.favorites, undo.favorites);
+    state.layout.promptOrder = removeReferences(state.layout.promptOrder, undo.promptOrder);
+    removedIds.forEach(function (id) {
+      if (catalog.has(id) && !hidden.has(id)) {
+        state.hiddenBuiltIns.push(id);
+        undo.hiddenBuiltInsAdded.push(id);
+      }
+    });
+    return { state: normalizeState(state), undo: undo };
+  }
+  function restoreDeleted(input, snapshot) {
+    var state = normalizeState(input);
+    var undo = record(snapshot, 'Deleted prompts');
+    var removed = new Set(idList(field(undo, 'removedIds'), 'Removed prompts'));
+    var hiddenAdded = idList(field(undo, 'hiddenBuiltInsAdded'), 'Hidden built-ins added');
+    if (hiddenAdded.some(function (id) { return !removed.has(id); })) throw fail('Invalid deleted built-ins.');
+    var collisions = new Set(state.prompts.map(function (prompt) { return prompt.id; }));
+    function snapshots(name, isPrompt) {
+      var entries = field(undo, name);
+      if (!Array.isArray(entries) || entries.length > LIMITS.prompts) throw fail('Invalid deletion snapshot.');
+      var seen = new Set();
+      var normalized = [];
+      for (var i = 0; i < entries.length; i += 1) {
+        var entry = record(entries[i], 'Deleted item');
+        var index = field(entry, 'index');
+        if (!Number.isInteger(index) || index < 0 || index >= LIMITS.prompts) throw fail('Invalid deleted item position.');
+        var prompt = isPrompt ? validatePrompt(field(entry, 'prompt')) : null;
+        var id = isPrompt ? prompt.id : field(entry, 'id');
+        if (!validId(id) || !removed.has(id) || seen.has(id)) throw fail('Invalid deleted item id.');
+        seen.add(id);
+        normalized.push(isPrompt ? { prompt: prompt, index: index } : { id: id, index: index });
+      }
+      return normalized.sort(function (a, b) { return a.index - b.index; });
+    }
+    // Validate the complete snapshot before producing any restored state.
+    var prompts = snapshots('prompts', true);
+    var favorites = snapshots('favorites', false);
+    var order = snapshots('promptOrder', false);
+    var restore = prompts.filter(function (entry) { return !collisions.has(entry.prompt.id); });
+    if (state.prompts.length + restore.length > LIMITS.prompts) throw fail('Too many prompts.', 'PROMPT_LIMIT');
+    restore.forEach(function (entry) { state.prompts.splice(Math.min(entry.index, state.prompts.length), 0, entry.prompt); });
+    var unhide = new Set(hiddenAdded);
+    state.hiddenBuiltIns = state.hiddenBuiltIns.filter(function (id) { return !unhide.has(id); });
+    function restoreReferences(list, entries) {
+      entries.forEach(function (entry) {
+        // A reused id belongs to newer work; leave its current metadata untouched.
+        if (!collisions.has(entry.id) && !list.includes(entry.id)) list.splice(Math.min(entry.index, list.length), 0, entry.id);
+      });
+    }
+    restoreReferences(state.favorites, favorites);
+    restoreReferences(state.layout.promptOrder, order);
+    return normalizeState(state);
   }
   function clone(state) { return JSON.parse(JSON.stringify(state)); }
   function storageError(error, code) {
@@ -417,10 +518,12 @@
         var oldLanguage = target.getItem('ui_lang');
         if (languages.some(function (entry) { return entry.code === oldLanguage; })) memory.language = oldLanguage;
         if (legacy === null) return clone(memory);
-        var migrated = legacyDocument(parseJSON(legacy));
+        var legacySource = parseJSON(legacy);
+        var migrated = legacyDocument(legacySource);
         var entries = migrated.entries;
         memory.prompts = entries.map(function (entry) { return entry.prompt; });
         memory.layout = migrated.layout;
+        memory.hiddenBuiltIns = idList(own(legacySource, 'hiddenBuiltIns') ? legacySource.hiddenBuiltIns : field(migrated.root, 'hiddenBuiltIns'), 'Hidden built-ins');
         var favoriteError = null;
         try {
           var oldFavorites = target.getItem('promptFavorites');
@@ -452,6 +555,7 @@
     tagIdentity: tagIdentity, normalizeTags: normalizeTags, renameTag: renameTag,
     validatePrompt: validatePrompt, parseImport: parseImport, parseDocument: parseDocument,
     normalizeLayout: normalizeLayout, reorder: reorder,
+    findDuplicateGroups: findDuplicateGroups, removePrompts: removePrompts, restoreDeleted: restoreDeleted,
     mergePrompts: mergePrompts, mergeImport: mergeImport, createStore: createStore
   });
 });

@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const core = require('../assets/core.js');
 const instant = '2026-09-27T00:00:00.000Z';
 const prompt = (overrides = {}) => ({ id: 'p-test', title: 'Review', description: '', body: 'Review {{ source }} for {{audience}}.', category: 'Writing', tags: ['review'], createdAt: instant, updatedAt: instant, ...overrides });
-const state = (overrides = {}) => ({ version: 2, prompts: [], favorites: [], language: 'ja', layout: { categoryOrder: [], tagOrder: [], promptOrder: [] }, ...overrides });
+const state = (overrides = {}) => ({ version: 2, prompts: [], favorites: [], hiddenBuiltIns: [], language: 'ja', layout: { categoryOrder: [], tagOrder: [], promptOrder: [] }, ...overrides });
 const legacy = { cats: [{ id: 'cat', name: '仕事', tasks: [{ id: 'task', name: 'レビュー', prompts: ['First {{資料}}', 'Second prompt'] }] }] };
 function storage(initial = {}) {
   const values = new Map(Object.entries(initial));
@@ -312,7 +312,7 @@ test('older v2 storage acquires an empty layout without losing data or changing 
   const original = JSON.stringify(older);
   const saved = storage({ 'myprompt.v2': original });
   const store = core.createStore(saved);
-  assert.deepEqual(store.load(), { ...older, layout: state().layout });
+  assert.deepEqual(store.load(), { ...older, hiddenBuiltIns: [], layout: state().layout });
   assert.equal(saved.getItem('myprompt.v2'), original);
   assert.deepEqual(core.parseDocument(original).layout, state().layout);
   assert.equal(store.error, null);
@@ -394,4 +394,120 @@ test('import deduplication distinguishes hierarchy and meaningful tag or variabl
   assert.equal(merged.length, 4);
   assert.equal(new Set(merged.map(item => item.id)).size, 4);
   assert.deepEqual(core.mergeImport(merged, versions).prompts, merged);
+});
+
+test('hidden built-ins and same-id personal overrides survive storage without changing catalog identity', () => {
+  const original = state({ prompts: [prompt({ id: 'starter-brief', body: 'My updated template' })], hiddenBuiltIns: ['starter-review', 'starter-review'] });
+  const expected = { ...original, hiddenBuiltIns: ['starter-review'] };
+  const saved = storage();
+  assert.equal(core.createStore(saved).save(original), true);
+  assert.deepEqual(core.createStore(saved).load(), expected);
+  assert.deepEqual(core.parseDocument(JSON.stringify(original)).hiddenBuiltIns, ['starter-review']);
+  assert.deepEqual(original.hiddenBuiltIns, ['starter-review', 'starter-review']);
+  for (const invalid of [null, 'starter-brief', ['__proto__'], [null], Array(1), Array(5001).fill('starter-brief')]) {
+    assert.throws(() => core.parseDocument(JSON.stringify(state({ hiddenBuiltIns: invalid }))));
+  }
+});
+
+test('legacy wrappers retain hidden built-ins with outer metadata taking precedence', () => {
+  const library = { ...legacy, hiddenBuiltIns: ['starter-brief'] };
+  for (const source of [library, { data: library }, { promptUIData: library }]) {
+    assert.deepEqual(core.parseDocument(JSON.stringify(source)).hiddenBuiltIns, ['starter-brief']);
+    const saved = storage({ promptUIData: JSON.stringify(source) });
+    assert.deepEqual(core.createStore(saved).load().hiddenBuiltIns, ['starter-brief']);
+  }
+  assert.deepEqual(core.parseDocument(JSON.stringify({ data: library, hiddenBuiltIns: [] })).hiddenBuiltIns, []);
+});
+
+test('duplicate body review ignores metadata and outer whitespace but preserves meaningful text differences', () => {
+  const original = [
+    prompt({ id: 'p-a', body: 'Call {{name}}\n  Keep  spaces' }),
+    prompt({ id: 'p-b', title: 'A renamed copy', category: 'Other', tags: ['different'], body: '\n Call {{name}}\r\n  Keep  spaces \n' }),
+    prompt({ id: 'p-c', body: 'call {{name}}\n  Keep  spaces' }),
+    prompt({ id: 'p-d', body: 'Call {{name}}\n Keep  spaces' }),
+    prompt({ id: 'p-e', body: 'Call {{name}}\n  Keep spaces' }),
+    prompt({ id: 'p-f', body: 'Call {{other}}\n  Keep  spaces' }),
+    prompt({ id: 'p-g', body: '' }),
+    prompt({ id: 'p-h', body: ' \n ' })
+  ];
+  const before = JSON.stringify(original);
+  const groups = core.findDuplicateGroups(original);
+  assert.deepEqual(groups.map(group => group.map(item => item.id)), [['p-a', 'p-b']]);
+  assert.equal(groups[0][0], original[0]);
+  assert.equal(JSON.stringify(original), before);
+  assert.deepEqual(core.findDuplicateGroups([]), []);
+});
+
+test('duplicate title review handles Unicode composition without conflating full-width titles', () => {
+  const original = [prompt({ id: 'p-a', title: ' Café ' }), prompt({ id: 'p-b', title: 'CAFE\u0301' }), prompt({ id: 'p-c', title: 'Ｃａｆé' })];
+  assert.deepEqual(core.findDuplicateGroups(original, 'title').map(group => group.map(item => item.id)), [['p-a', 'p-b']]);
+  assert.throws(() => core.findDuplicateGroups(original, 'similar'), { code: 'INVALID_DUPLICATE_MODE' });
+  assert.throws(() => core.findDuplicateGroups([prompt(), {}]));
+  assert.throws(() => core.findDuplicateGroups(Array(1)));
+});
+
+test('bulk deletion removes only selected prompts, catalog entries, favorites, and order references', () => {
+  const original = state({
+    prompts: [prompt({ id: 'p-a' }), prompt({ id: 'starter-brief', body: 'Override' }), prompt({ id: 'p-b' })],
+    favorites: ['p-a', 'starter-brief', 'starter-review', 'p-b'],
+    hiddenBuiltIns: ['starter-old'],
+    layout: { categoryOrder: ['Writing', ''], tagOrder: [], promptOrder: ['p-b', 'starter-brief', 'p-a', 'starter-review'] }
+  });
+  const before = JSON.stringify(original);
+  const result = core.removePrompts(original, ['p-a', 'starter-brief', 'starter-review', 'unknown', 'p-a'], ['starter-brief', 'starter-review', 'starter-old']);
+  assert.deepEqual(result.state.prompts.map(item => item.id), ['p-b']);
+  assert.deepEqual(result.state.favorites, ['p-b']);
+  assert.deepEqual(result.state.layout.promptOrder, ['p-b']);
+  assert.deepEqual(result.state.hiddenBuiltIns, ['starter-old', 'starter-brief', 'starter-review']);
+  assert.deepEqual(result.undo.removedIds, ['p-a', 'starter-brief', 'starter-review']);
+  assert.deepEqual(result.undo.prompts.map(item => [item.prompt.id, item.index]), [['p-a', 0], ['starter-brief', 1]]);
+  assert.deepEqual(result.undo.hiddenBuiltInsAdded, ['starter-brief', 'starter-review']);
+  assert.deepEqual(core.restoreDeleted(result.state, result.undo), original);
+  assert.equal(JSON.stringify(original), before);
+});
+
+test('undo restores exact duplicate records without deduplication and preserves unrelated newer work', () => {
+  const original = state({ prompts: [prompt({ id: 'p-a' }), prompt({ id: 'p-b' }), prompt({ id: 'p-c' })], favorites: ['p-b'], layout: { categoryOrder: [], tagOrder: [], promptOrder: ['p-a', 'p-b', 'p-c'] } });
+  const deleted = core.removePrompts(original, ['p-b'], []);
+  const newer = { ...deleted.state, prompts: [prompt({ id: 'p-c', body: 'Newer edit' }), prompt({ id: 'p-new', body: 'Added later' }), prompt({ id: 'p-a' })], favorites: ['p-new'], hiddenBuiltIns: ['starter-later'], language: 'ko', layout: { ...deleted.state.layout, promptOrder: ['p-c', 'p-new', 'p-a'] } };
+  const before = JSON.stringify(newer);
+  const restored = core.restoreDeleted(newer, deleted.undo);
+  assert.equal(restored.prompts.length, 4);
+  assert.deepEqual(restored.prompts.map(item => item.id), ['p-c', 'p-b', 'p-new', 'p-a']);
+  assert.equal(restored.prompts[0].body, 'Newer edit');
+  assert.deepEqual(restored.favorites, ['p-b', 'p-new']);
+  assert.deepEqual(restored.layout.promptOrder, ['p-c', 'p-b', 'p-new', 'p-a']);
+  assert.deepEqual(restored.hiddenBuiltIns, ['starter-later']);
+  assert.equal(restored.language, 'ko');
+  assert.equal(JSON.stringify(newer), before);
+  assert.deepEqual(core.restoreDeleted(restored, deleted.undo), restored);
+});
+
+test('undo preserves newer records and metadata on an ID collision', () => {
+  const original = state({ prompts: [prompt({ id: 'p-a' })], favorites: ['p-a'], layout: { categoryOrder: [], tagOrder: [], promptOrder: ['p-a'] } });
+  const deleted = core.removePrompts(original, ['p-a'], []);
+  const newer = { ...deleted.state, prompts: [prompt({ id: 'p-a', body: 'New content using the same id' })] };
+  assert.deepEqual(core.restoreDeleted(newer, deleted.undo), newer);
+});
+
+test('no-op deletions and pre-hidden catalog entries do not create undo changes', () => {
+  const original = state({ prompts: [prompt()], hiddenBuiltIns: ['starter-brief'] });
+  const result = core.removePrompts(original, ['missing', 'starter-brief'], ['starter-brief']);
+  assert.deepEqual(result.state, original);
+  assert.deepEqual(result.undo, { prompts: [], removedIds: [], hiddenBuiltInsAdded: [], favorites: [], promptOrder: [] });
+  assert.deepEqual(core.restoreDeleted(original, result.undo), original);
+});
+
+test('deletion and restoration reject invalid input atomically and enforce the prompt limit', () => {
+  const original = state({ prompts: [prompt()] });
+  const before = JSON.stringify(original);
+  for (const ids of [null, [null], ['constructor'], Array(1)]) assert.throws(() => core.removePrompts(original, ids, []));
+  const deleted = core.removePrompts(original, ['p-test'], []);
+  for (const undo of [null, { ...deleted.undo, favorites: [{ id: 'unrelated', index: 0 }] }, { ...deleted.undo, prompts: [{ prompt: prompt(), index: -1 }] }, { ...deleted.undo, hiddenBuiltInsAdded: ['unrelated'] }]) {
+    assert.throws(() => core.restoreDeleted(deleted.state, undo));
+  }
+  const full = state({ prompts: Array.from({ length: core.limits.prompts }, (_, index) => prompt({ id: 'p-' + index })) });
+  assert.throws(() => core.restoreDeleted(full, deleted.undo), { code: 'PROMPT_LIMIT' });
+  assert.equal(full.prompts.length, core.limits.prompts);
+  assert.equal(JSON.stringify(original), before);
 });

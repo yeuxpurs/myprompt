@@ -1,5 +1,10 @@
 window.MYPROMPT_I18N = {
   ja: {
+    managePrompts: "選択して管理", finishManaging: "選択を終了", selectPrompt: "{title}を選択", selectVisible: "表示中の項目をすべて選択", clearSelection: "選択を解除", selectedCount: "{count}件を選択中", deleteSelected: "選択した項目を削除",
+    bulkDeleteConfirm: "選択した{count}件のプロンプトを削除しますか？", reviewDuplicates: "重複を整理",
+    duplicatesDescription: "現在の表示言語のライブラリ全体を比較します。本文の比較では、改行形式と前後の空白だけを無視します。同じタイトルでも内容が異なる場合があるため、確認してから選択してください。",
+    duplicateMode: "比較する項目", sameBody: "同じ本文", sameTitle: "同じタイトル", duplicateGroups: "重複グループ：{count}件", noDuplicates: "一致する重複項目はありません。", selectExtraCopies: "各グループに1件残して選択", keepOne: "各グループに1件以上のプロンプトを残してください。", duplicateGroup: "グループ{number}・{count}件", previewBody: "本文を確認",
+    builtinEditHint: "編集内容でこのテンプレートを置き換えます。変更はこのブラウザに保存されます。", restoreDeleted: "最後の削除を元に戻す", deletedCount: "{count}件を削除しました", duplicateSaveWarning: "同じ本文のプロンプトが{count}件あります。内容を確認してから保存してください。", saveAnyway: "重複を残して保存", deleteBackupError: "復元用のバックアップを保存できなかったため、削除しませんでした。まず書き出して保管してください。", noSelection: "削除する項目を選択してください。", staleEditor: "別のタブでこのプロンプトが変更されました。開き直して確認してください。", customizedTemplate: "編集済みの標準テンプレート",
     appName: "myprompt",
     tagline: "問いを整えて、仕事を前へ。",
     workspace: "ワークスペース", home: "ホーム", library: "ライブラリ", studio: "スタジオ", workflows: "ワークフロー", guide: "使い方",
@@ -86,6 +91,11 @@ window.MYPROMPT_I18N = {
     ]
   },
   zh: {
+    managePrompts: "批量管理", finishManaging: "完成选择", selectPrompt: "选择{title}", selectVisible: "全选当前列表", clearSelection: "取消选择", selectedCount: "已选择{count}条", deleteSelected: "删除所选项",
+    bulkDeleteConfirm: "删除选中的{count}条提示词？", reviewDuplicates: "整理重复项",
+    duplicatesDescription: "比较当前显示语言的整个提示词库。正文比较仅忽略换行格式和首尾空白。相同标题可能有不同内容，请确认后再选择。",
+    duplicateMode: "比较依据", sameBody: "相同正文", sameTitle: "相同标题", duplicateGroups: "{count}组重复项", noDuplicates: "未找到匹配的重复项。", selectExtraCopies: "每组保留一条，选择其余项", keepOne: "请在每组中至少保留一条提示词。", duplicateGroup: "第{number}组 · {count}条", previewBody: "查看正文",
+    builtinEditHint: "修改后的内容将替换此模板。更改保存在当前浏览器中。", restoreDeleted: "撤销上次删除", deletedCount: "已删除{count}条", duplicateSaveWarning: "有{count}条提示词的正文相同。请确认内容后再保存。", saveAnyway: "仍然保存", deleteBackupError: "无法保存用于撤销的备份，因此未删除任何内容。请先导出备份。", noSelection: "请选择要删除的条目。", staleEditor: "此提示词已在其他标签页中更改。请重新打开并确认。", customizedTemplate: "已修改的内置模板",
     appName: "myprompt", tagline: "把问题说清，让工作向前。",
     workspace: "工作空间", home: "首页", library: "提示词库", studio: "工作台", workflows: "工作流程", guide: "使用指南",
     personal: "个人空间", favorites: "收藏", myPrompts: "我的提示词", backup: "备份", export: "导出", import: "导入",
@@ -169,6 +179,11 @@ window.MYPROMPT_I18N = {
     ]
   },
   en: {
+    managePrompts: "Select prompts", finishManaging: "Done selecting", selectPrompt: "Select {title}", selectVisible: "Select all in this list", clearSelection: "Clear selection", selectedCount: "{count} selected", deleteSelected: "Delete selected",
+    bulkDeleteConfirm: "Delete the {count} selected prompts?", reviewDuplicates: "Review duplicates",
+    duplicatesDescription: "Compares the full library in the current display language. Text matching ignores only line ending format and leading or trailing whitespace. Matching titles may have different content; review them before selecting.",
+    duplicateMode: "Compare by", sameBody: "Same text", sameTitle: "Same title", duplicateGroups: "{count} duplicate groups", noDuplicates: "No matching duplicates found.", selectExtraCopies: "Select all but one in each group", keepOne: "Keep at least one prompt in each group.", duplicateGroup: "Group {number} · {count} prompts", previewBody: "Review text",
+    builtinEditHint: "Your edits replace this template. Changes are saved in this browser.", restoreDeleted: "Undo last deletion", deletedCount: "Deleted {count} prompts", duplicateSaveWarning: "{count} prompts have the same text. Review the content before saving.", saveAnyway: "Save anyway", deleteBackupError: "Could not save an undo backup, so nothing was deleted. Export a backup first.", noSelection: "Select the prompts you want to delete.", staleEditor: "This prompt was changed in another tab. Open it again to review the changes.", customizedTemplate: "Edited built-in template",
     appName: "myprompt", tagline: "Better questions. Work that moves forward.",
     workspace: "Workspace", home: "Home", library: "Library", studio: "Studio", workflows: "Workflows", guide: "Guide",
     personal: "Your space", favorites: "Favorites", myPrompts: "My prompts", backup: "Backup", export: "Export", import: "Import",
@@ -252,6 +267,11 @@ window.MYPROMPT_I18N = {
     ]
   },
   vi: {
+    managePrompts: "Chọn để quản lý", finishManaging: "Chọn xong", selectPrompt: "Chọn {title}", selectVisible: "Chọn tất cả trong danh sách", clearSelection: "Bỏ chọn", selectedCount: "Đã chọn {count}", deleteSelected: "Xóa mục đã chọn",
+    bulkDeleteConfirm: "Xóa {count} prompt đã chọn?", reviewDuplicates: "Rà soát mục trùng",
+    duplicatesDescription: "So sánh toàn bộ thư viện theo ngôn ngữ hiển thị hiện tại. Khi so sánh nội dung, chỉ bỏ qua kiểu xuống dòng và khoảng trắng ở đầu hoặc cuối. Các mục cùng tiêu đề có thể có nội dung khác nhau; hãy kiểm tra trước khi chọn.",
+    duplicateMode: "Tiêu chí so sánh", sameBody: "Cùng nội dung", sameTitle: "Cùng tiêu đề", duplicateGroups: "{count} nhóm trùng lặp", noDuplicates: "Không tìm thấy mục trùng khớp.", selectExtraCopies: "Giữ một mục mỗi nhóm, chọn phần còn lại", keepOne: "Hãy giữ lại ít nhất một prompt trong mỗi nhóm.", duplicateGroup: "Nhóm {number} · {count} prompt", previewBody: "Xem nội dung",
+    builtinEditHint: "Nội dung chỉnh sửa sẽ thay thế mẫu này. Thay đổi được lưu trong trình duyệt này.", restoreDeleted: "Hoàn tác lần xóa gần nhất", deletedCount: "Đã xóa {count} prompt", duplicateSaveWarning: "Có {count} prompt cùng nội dung. Hãy kiểm tra nội dung trước khi lưu.", saveAnyway: "Vẫn lưu", deleteBackupError: "Không thể lưu bản sao để hoàn tác nên chưa xóa mục nào. Hãy xuất bản sao lưu trước.", noSelection: "Hãy chọn các prompt muốn xóa.", staleEditor: "Prompt này đã thay đổi trong tab khác. Hãy mở lại để kiểm tra.", customizedTemplate: "Mẫu có sẵn đã chỉnh sửa",
     appName: "myprompt", tagline: "Hỏi rõ hơn, làm việc hiệu quả hơn.",
     workspace: "Không gian làm việc", home: "Trang chủ", library: "Thư viện", studio: "Trình soạn", workflows: "Quy trình", guide: "Hướng dẫn",
     personal: "Không gian của bạn", favorites: "Yêu thích", myPrompts: "Câu lệnh của tôi", backup: "Sao lưu", export: "Xuất", import: "Nhập",
@@ -335,6 +355,11 @@ window.MYPROMPT_I18N = {
     ]
   },
   fr: {
+    managePrompts: "Sélectionner des prompts", finishManaging: "Terminer la sélection", selectPrompt: "Sélectionner {title}", selectVisible: "Tout sélectionner dans cette liste", clearSelection: "Désélectionner", selectedCount: "{count} sélectionnés", deleteSelected: "Supprimer la sélection",
+    bulkDeleteConfirm: "Supprimer les {count} prompts sélectionnés ?", reviewDuplicates: "Examiner les doublons",
+    duplicatesDescription: "Compare toute la bibliothèque dans la langue d’affichage actuelle. La comparaison du texte ignore uniquement le format des sauts de ligne et les espaces au début ou à la fin. Des titres identiques peuvent avoir des contenus différents : vérifiez-les avant de les sélectionner.",
+    duplicateMode: "Comparer par", sameBody: "Texte identique", sameTitle: "Titre identique", duplicateGroups: "{count} groupes de doublons", noDuplicates: "Aucun doublon correspondant trouvé.", selectExtraCopies: "Tout sélectionner sauf un prompt par groupe", keepOne: "Conservez au moins un prompt dans chaque groupe.", duplicateGroup: "Groupe {number} · {count} prompts", previewBody: "Consulter le texte",
+    builtinEditHint: "Vos modifications remplacent ce modèle. Elles sont enregistrées dans ce navigateur.", restoreDeleted: "Annuler la dernière suppression", deletedCount: "{count} prompts supprimés", duplicateSaveWarning: "{count} prompts ont le même texte. Vérifiez le contenu avant d’enregistrer.", saveAnyway: "Enregistrer quand même", deleteBackupError: "La sauvegarde nécessaire à l’annulation n’a pas pu être enregistrée. Rien n’a été supprimé. Exportez d’abord une sauvegarde.", noSelection: "Sélectionnez les prompts à supprimer.", staleEditor: "Ce prompt a été modifié dans un autre onglet. Ouvrez-le à nouveau pour vérifier les modifications.", customizedTemplate: "Modèle intégré modifié",
     appName: "myprompt", tagline: "Mieux formuler pour faire avancer le travail.",
     workspace: "Espace de travail", home: "Accueil", library: "Bibliothèque", studio: "Atelier", workflows: "Parcours", guide: "Guide",
     personal: "Votre espace", favorites: "Favoris", myPrompts: "Mes prompts", backup: "Sauvegarde", export: "Exporter", import: "Importer",
@@ -418,6 +443,11 @@ window.MYPROMPT_I18N = {
     ]
   },
   es: {
+    managePrompts: "Seleccionar prompts", finishManaging: "Terminar selección", selectPrompt: "Seleccionar {title}", selectVisible: "Seleccionar toda la lista", clearSelection: "Quitar selección", selectedCount: "{count} seleccionados", deleteSelected: "Eliminar seleccionados",
+    bulkDeleteConfirm: "¿Eliminar los {count} prompts seleccionados?", reviewDuplicates: "Revisar duplicados",
+    duplicatesDescription: "Compara toda la biblioteca en el idioma de visualización actual. La comparación del texto solo ignora el formato de los saltos de línea y los espacios al principio o al final. Los títulos iguales pueden tener contenido distinto; revísalos antes de seleccionarlos.",
+    duplicateMode: "Comparar por", sameBody: "Mismo texto", sameTitle: "Mismo título", duplicateGroups: "{count} grupos de duplicados", noDuplicates: "No se encontraron duplicados coincidentes.", selectExtraCopies: "Seleccionar todos menos uno por grupo", keepOne: "Conserva al menos un prompt en cada grupo.", duplicateGroup: "Grupo {number} · {count} prompts", previewBody: "Revisar texto",
+    builtinEditHint: "Tus cambios reemplazarán esta plantilla y se guardarán en este navegador.", restoreDeleted: "Deshacer la última eliminación", deletedCount: "Se eliminaron {count} prompts", duplicateSaveWarning: "Hay {count} prompts con el mismo texto. Revisa el contenido antes de guardar.", saveAnyway: "Guardar de todos modos", deleteBackupError: "No se pudo guardar una copia para deshacer la acción, así que no se eliminó nada. Exporta primero una copia de seguridad.", noSelection: "Selecciona los prompts que quieres eliminar.", staleEditor: "Este prompt se modificó en otra pestaña. Ábrelo de nuevo para revisar los cambios.", customizedTemplate: "Plantilla integrada modificada",
     appName: "myprompt", tagline: "Mejores preguntas para avanzar en tu trabajo.",
     workspace: "Espacio de trabajo", home: "Inicio", library: "Biblioteca", studio: "Taller", workflows: "Flujos de trabajo", guide: "Guía",
     personal: "Tu espacio", favorites: "Favoritos", myPrompts: "Mis prompts", backup: "Copia de seguridad", export: "Exportar", import: "Importar",
@@ -501,6 +531,11 @@ window.MYPROMPT_I18N = {
     ]
   },
   ko: {
+    managePrompts: "선택 관리", finishManaging: "선택 완료", selectPrompt: "{title} 선택", selectVisible: "현재 목록 전체 선택", clearSelection: "선택 해제", selectedCount: "{count}개 선택", deleteSelected: "선택 삭제",
+    bulkDeleteConfirm: "선택한 프롬프트 {count}개를 삭제할까요?", reviewDuplicates: "중복 정리",
+    duplicatesDescription: "현재 표시 언어의 전체 라이브러리에서 비교합니다. 본문 일치는 줄바꿈 형식과 앞뒤 공백만 무시합니다. 제목이 같은 항목은 내용이 다를 수 있으니 확인 후 선택하세요.",
+    duplicateMode: "비교 기준", sameBody: "같은 본문", sameTitle: "같은 제목", duplicateGroups: "{count}개 중복 그룹", noDuplicates: "일치하는 중복 항목이 없어요.", selectExtraCopies: "그룹마다 하나 남기고 선택", keepOne: "각 그룹에 프롬프트를 하나 이상 남겨 주세요.", duplicateGroup: "그룹 {number} · {count}개", previewBody: "본문 확인",
+    builtinEditHint: "수정한 내용으로 이 템플릿을 대체합니다. 변경 사항은 이 브라우저에 저장됩니다.", restoreDeleted: "마지막 삭제 되돌리기", deletedCount: "{count}개를 삭제했어요", duplicateSaveWarning: "같은 본문의 프롬프트가 {count}개 있어요. 내용을 확인한 후 저장하세요.", saveAnyway: "중복을 유지하고 저장", deleteBackupError: "되돌리기용 백업을 저장하지 못해 삭제하지 않았어요. 먼저 내보내기로 보관해 주세요.", noSelection: "삭제할 항목을 선택해 주세요.", staleEditor: "다른 탭에서 이 프롬프트가 변경됐어요. 다시 열어 확인해 주세요.", customizedTemplate: "수정한 기본 템플릿",
     appName: "myprompt", tagline: "질문을 다듬고, 일을 앞으로.",
     workspace: "작업 공간", home: "홈", library: "라이브러리", studio: "스튜디오", workflows: "작업 흐름", guide: "사용 가이드",
     personal: "내 공간", favorites: "즐겨찾기", myPrompts: "내 프롬프트", backup: "백업", export: "내보내기", import: "가져오기",

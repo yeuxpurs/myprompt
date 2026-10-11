@@ -6,8 +6,8 @@ const core = require('../assets/core.js');
 const formats = require('../assets/formats.js');
 const instant = '2026-09-27T00:00:00.000Z';
 const prompt = (overrides = {}) => ({ id: 'p-one', title: 'A title', description: 'A description', body: 'A body', category: 'Writing', tags: ['second', 'first'], createdAt: instant, updatedAt: instant, ...overrides });
-const state = (overrides = {}) => ({ version: 2, prompts: [], favorites: [], language: 'ko', layout: { categoryOrder: [], tagOrder: [], promptOrder: [] }, ...overrides });
-const content = document => ({ prompts: document.prompts, layout: document.layout, favorites: document.favorites, language: document.language });
+const state = (overrides = {}) => ({ version: 2, prompts: [], favorites: [], hiddenBuiltIns: [], language: 'ko', layout: { categoryOrder: [], tagOrder: [], promptOrder: [] }, ...overrides });
+const content = document => ({ prompts: document.prompts, layout: document.layout, favorites: document.favorites, hiddenBuiltIns: document.hiddenBuiltIns, language: document.language });
 
 test('all original JSON wrappers accept legacy string prompts and preserve empty categories/tasks', () => {
   const legacy = { cats: [
@@ -144,4 +144,22 @@ test('invalid documents, unsafe keys, unsupported formats, and more than 5000 pr
 
 test('10 MiB limit counts UTF-8 bytes, not only JavaScript character length', () => {
   assert.throws(() => formats.parse('한'.repeat(Math.ceil(core.limits.importBytes / 3)), 'md'), { code: 'IMPORT_TOO_LARGE' });
+});
+
+test('JSON and Markdown retain hidden built-ins and same-id overrides across repeated round trips', () => {
+  const input = state({ prompts: [prompt({ id: 'starter-brief', body: 'My edited built-in' })], hiddenBuiltIns: ['starter-review'], favorites: ['starter-brief'], layout: { categoryOrder: ['Writing'], tagOrder: [], promptOrder: ['starter-brief'] } });
+  for (const format of ['json', 'md']) {
+    const parsed = formats.parse(formats.serialize(input, format), format);
+    assert.deepEqual(content(parsed), content(input));
+    assert.deepEqual(content(formats.parse(formats.serialize(parsed, format), format)), content(input));
+  }
+});
+
+test('legacy JSON envelope positions and Markdown workspace metadata preserve hidden built-ins', () => {
+  const tree = { cats: [], hiddenBuiltIns: ['starter-review'] };
+  for (const source of [tree, { data: tree }, { promptUIData: tree }, { data: { cats: [] }, hiddenBuiltIns: ['starter-review'] }]) {
+    assert.deepEqual(formats.parse(JSON.stringify(source)).hiddenBuiltIns, ['starter-review']);
+  }
+  assert.deepEqual(formats.parse('<!-- myprompt: {"hiddenBuiltIns":["starter-review"]} -->', 'md').hiddenBuiltIns, ['starter-review']);
+  assert.throws(() => formats.parse('<!-- myprompt: {"hiddenBuiltIns":["constructor"]} -->', 'md'));
 });

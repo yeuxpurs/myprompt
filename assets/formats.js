@@ -196,6 +196,7 @@
       prompts: state.prompts.filter(function (prompt) { return !prompt || prompt.builtIn !== true; }),
       layout: state.layout,
       favorites: state.favorites,
+      hiddenBuiltIns: state.hiddenBuiltIns,
       language: state.language
     }));
   }
@@ -259,6 +260,7 @@
       version: 2,
       language: normalized.language,
       favorites: normalized.favorites,
+      hiddenBuiltIns: normalized.hiddenBuiltIns,
       layout: normalized.layout,
       promptSequence: normalized.prompts.map(function (prompt) { return prompt.id; }),
       promptUIData: { cats: hierarchy(normalized) }
