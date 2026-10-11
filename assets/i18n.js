@@ -1,5 +1,8 @@
 window.MYPROMPT_I18N = {
   ja: {
+    manageClassification: "分類を編集・削除", finishClassification: "分類の編集を終了", renameClassification: "名前を変更", classificationName: "名前", classificationEditTitle: "分類を編集",
+    classificationEditHint: "同じ名前の分類がある場合は統合します。プロンプトの本文は変更しません。", classificationDeleteTitle: "分類を削除", classificationDeleteCategory: "カテゴリー「{name}」を削除しますか？ 含まれるプロンプトは削除せず、全件一覧に残ります。", classificationDeleteTag: "サブタグ・セクション「{name}」を削除しますか？ {scope}から分類だけを削除し、プロンプトは残します。",
+    classificationScopeAll: "すべてのカテゴリー", classificationScopeCategory: "カテゴリー「{name}」", classificationAffected: "対象のプロンプト：{count}件", classificationInvalid: "名前を確認してください。カテゴリーは100文字、タグは50文字、セクションは160文字以内で入力してください。", classificationChanged: "分類を変更しました", classificationStale: "別のタブで分類が変更されました。開き直して確認してください。", classificationHint: "分類の編集・削除を有効にすると、各項目の鉛筆とゴミ箱で編集できます。「すべて」は標準のフィルターです。",
     managePrompts: "選択して管理", finishManaging: "選択を終了", selectPrompt: "{title}を選択", selectVisible: "表示中の項目をすべて選択", clearSelection: "選択を解除", selectedCount: "{count}件を選択中", deleteSelected: "選択した項目を削除",
     bulkDeleteConfirm: "選択した{count}件のプロンプトを削除しますか？", reviewDuplicates: "重複を整理",
     duplicatesDescription: "現在の表示言語のライブラリ全体を比較します。本文の比較では、改行形式と前後の空白だけを無視します。同じタイトルでも内容が異なる場合があるため、確認してから選択してください。",
@@ -91,6 +94,9 @@ window.MYPROMPT_I18N = {
     ]
   },
   zh: {
+    manageClassification: "编辑和删除分类", finishClassification: "完成分类编辑", renameClassification: "修改名称", classificationName: "名称", classificationEditTitle: "编辑分类",
+    classificationEditHint: "如果已有同名分类，将进行合并。提示词正文保持不变。", classificationDeleteTitle: "删除分类", classificationDeleteCategory: "删除「{name}」分类？其中的提示词不会被删除，仍保留在全部列表中。", classificationDeleteTag: "删除「{name}」子标签或分组？仅从{scope}移除此分类，提示词将保留。",
+    classificationScopeAll: "全部分类", classificationScopeCategory: "「{name}」分类", classificationAffected: "受影响的提示词：{count}条", classificationInvalid: "请检查名称。分类名称最多100个字符，标签最多50个字符，分组名称最多160个字符。", classificationChanged: "分类已更改", classificationStale: "分类已在其他标签页中更改。请重新打开并确认。", classificationHint: "启用分类编辑和删除后，可使用各项的铅笔和垃圾桶按钮进行编辑。「全部」是默认筛选项。",
     managePrompts: "批量管理", finishManaging: "完成选择", selectPrompt: "选择{title}", selectVisible: "全选当前列表", clearSelection: "取消选择", selectedCount: "已选择{count}条", deleteSelected: "删除所选项",
     bulkDeleteConfirm: "删除选中的{count}条提示词？", reviewDuplicates: "整理重复项",
     duplicatesDescription: "比较当前显示语言的整个提示词库。正文比较仅忽略换行格式和首尾空白。相同标题可能有不同内容，请确认后再选择。",
@@ -179,6 +185,9 @@ window.MYPROMPT_I18N = {
     ]
   },
   en: {
+    manageClassification: "Edit categories and tags", finishClassification: "Done editing categories and tags", renameClassification: "Rename", classificationName: "Name", classificationEditTitle: "Edit category or tag",
+    classificationEditHint: "If a category or tag with this name already exists, they will be merged. Prompt text stays unchanged.", classificationDeleteTitle: "Delete category or tag", classificationDeleteCategory: "Delete the “{name}” category? Its prompts will remain in the full list and will not be deleted.", classificationDeleteTag: "Delete the “{name}” subtag or section? Only this classification will be removed from {scope}; prompts will be kept.",
+    classificationScopeAll: "all categories", classificationScopeCategory: "the “{name}” category", classificationAffected: "{count} prompts affected", classificationInvalid: "Check the name. Categories allow up to 100 characters, tags 50, and sections 160.", classificationChanged: "Classification updated", classificationStale: "The classification changed in another tab. Open it again to review the changes.", classificationHint: "Turn on category and tag editing to use the pencil and trash buttons beside each item. All is the default filter.",
     managePrompts: "Select prompts", finishManaging: "Done selecting", selectPrompt: "Select {title}", selectVisible: "Select all in this list", clearSelection: "Clear selection", selectedCount: "{count} selected", deleteSelected: "Delete selected",
     bulkDeleteConfirm: "Delete the {count} selected prompts?", reviewDuplicates: "Review duplicates",
     duplicatesDescription: "Compares the full library in the current display language. Text matching ignores only line ending format and leading or trailing whitespace. Matching titles may have different content; review them before selecting.",
@@ -267,6 +276,9 @@ window.MYPROMPT_I18N = {
     ]
   },
   vi: {
+    manageClassification: "Sửa, xóa phân loại", finishClassification: "Hoàn tất sửa phân loại", renameClassification: "Đổi tên", classificationName: "Tên", classificationEditTitle: "Sửa phân loại",
+    classificationEditHint: "Nếu đã có phân loại cùng tên, các phân loại sẽ được gộp lại. Nội dung prompt được giữ nguyên.", classificationDeleteTitle: "Xóa phân loại", classificationDeleteCategory: "Xóa danh mục “{name}”? Các prompt trong danh mục sẽ không bị xóa và vẫn có trong danh sách đầy đủ.", classificationDeleteTag: "Xóa thẻ phụ hoặc nhóm “{name}”? Chỉ xóa phân loại này khỏi {scope}; các prompt vẫn được giữ lại.",
+    classificationScopeAll: "tất cả danh mục", classificationScopeCategory: "danh mục “{name}”", classificationAffected: "{count} prompt bị ảnh hưởng", classificationInvalid: "Hãy kiểm tra tên. Tên danh mục tối đa 100 ký tự, thẻ 50 ký tự và nhóm 160 ký tự.", classificationChanged: "Đã cập nhật phân loại", classificationStale: "Phân loại đã thay đổi trong tab khác. Hãy mở lại để kiểm tra.", classificationHint: "Bật sửa, xóa phân loại để dùng nút bút chì và thùng rác bên cạnh mỗi mục. Tất cả là bộ lọc mặc định.",
     managePrompts: "Chọn để quản lý", finishManaging: "Chọn xong", selectPrompt: "Chọn {title}", selectVisible: "Chọn tất cả trong danh sách", clearSelection: "Bỏ chọn", selectedCount: "Đã chọn {count}", deleteSelected: "Xóa mục đã chọn",
     bulkDeleteConfirm: "Xóa {count} prompt đã chọn?", reviewDuplicates: "Rà soát mục trùng",
     duplicatesDescription: "So sánh toàn bộ thư viện theo ngôn ngữ hiển thị hiện tại. Khi so sánh nội dung, chỉ bỏ qua kiểu xuống dòng và khoảng trắng ở đầu hoặc cuối. Các mục cùng tiêu đề có thể có nội dung khác nhau; hãy kiểm tra trước khi chọn.",
@@ -355,6 +367,9 @@ window.MYPROMPT_I18N = {
     ]
   },
   fr: {
+    manageClassification: "Modifier les catégories et tags", finishClassification: "Terminer la modification", renameClassification: "Renommer", classificationName: "Nom", classificationEditTitle: "Modifier une catégorie ou un tag",
+    classificationEditHint: "Si une catégorie ou un tag porte déjà ce nom, les deux seront fusionnés. Le texte des prompts reste inchangé.", classificationDeleteTitle: "Supprimer une catégorie ou un tag", classificationDeleteCategory: "Supprimer la catégorie « {name} » ? Ses prompts resteront dans la liste complète et ne seront pas supprimés.", classificationDeleteTag: "Supprimer le sous-tag ou la section « {name} » ? Seul ce classement sera retiré de {scope} ; les prompts seront conservés.",
+    classificationScopeAll: "toutes les catégories", classificationScopeCategory: "la catégorie « {name} »", classificationAffected: "{count} prompts concernés", classificationInvalid: "Vérifiez le nom. Les catégories acceptent jusqu’à 100 caractères, les tags 50 et les sections 160.", classificationChanged: "Classement mis à jour", classificationStale: "Le classement a été modifié dans un autre onglet. Ouvrez-le à nouveau pour vérifier les modifications.", classificationHint: "Activez la modification des catégories et tags pour utiliser les boutons crayon et corbeille à côté de chaque élément. Tout est le filtre par défaut.",
     managePrompts: "Sélectionner des prompts", finishManaging: "Terminer la sélection", selectPrompt: "Sélectionner {title}", selectVisible: "Tout sélectionner dans cette liste", clearSelection: "Désélectionner", selectedCount: "{count} sélectionnés", deleteSelected: "Supprimer la sélection",
     bulkDeleteConfirm: "Supprimer les {count} prompts sélectionnés ?", reviewDuplicates: "Examiner les doublons",
     duplicatesDescription: "Compare toute la bibliothèque dans la langue d’affichage actuelle. La comparaison du texte ignore uniquement le format des sauts de ligne et les espaces au début ou à la fin. Des titres identiques peuvent avoir des contenus différents : vérifiez-les avant de les sélectionner.",
@@ -443,6 +458,9 @@ window.MYPROMPT_I18N = {
     ]
   },
   es: {
+    manageClassification: "Editar categorías y etiquetas", finishClassification: "Terminar la edición", renameClassification: "Cambiar nombre", classificationName: "Nombre", classificationEditTitle: "Editar categoría o etiqueta",
+    classificationEditHint: "Si ya existe una categoría o etiqueta con este nombre, se combinarán. El texto de los prompts no cambiará.", classificationDeleteTitle: "Eliminar categoría o etiqueta", classificationDeleteCategory: "¿Eliminar la categoría «{name}»? Sus prompts permanecerán en la lista completa y no se eliminarán.", classificationDeleteTag: "¿Eliminar la subetiqueta o sección «{name}»? Solo se quitará esta clasificación de {scope}; los prompts se conservarán.",
+    classificationScopeAll: "todas las categorías", classificationScopeCategory: "la categoría «{name}»", classificationAffected: "{count} prompts afectados", classificationInvalid: "Revisa el nombre. Las categorías admiten hasta 100 caracteres, las etiquetas 50 y las secciones 160.", classificationChanged: "Clasificación actualizada", classificationStale: "La clasificación cambió en otra pestaña. Ábrela de nuevo para revisar los cambios.", classificationHint: "Activa la edición de categorías y etiquetas para usar los botones de lápiz y papelera junto a cada elemento. Todo es el filtro predeterminado.",
     managePrompts: "Seleccionar prompts", finishManaging: "Terminar selección", selectPrompt: "Seleccionar {title}", selectVisible: "Seleccionar toda la lista", clearSelection: "Quitar selección", selectedCount: "{count} seleccionados", deleteSelected: "Eliminar seleccionados",
     bulkDeleteConfirm: "¿Eliminar los {count} prompts seleccionados?", reviewDuplicates: "Revisar duplicados",
     duplicatesDescription: "Compara toda la biblioteca en el idioma de visualización actual. La comparación del texto solo ignora el formato de los saltos de línea y los espacios al principio o al final. Los títulos iguales pueden tener contenido distinto; revísalos antes de seleccionarlos.",
@@ -531,6 +549,9 @@ window.MYPROMPT_I18N = {
     ]
   },
   ko: {
+    manageClassification: "분류 수정·삭제", finishClassification: "분류 편집 완료", renameClassification: "이름 수정", classificationName: "이름", classificationEditTitle: "분류 수정",
+    classificationEditHint: "같은 이름의 분류가 있으면 합칩니다. 프롬프트 본문은 유지됩니다.", classificationDeleteTitle: "분류 삭제", classificationDeleteCategory: "「{name}」 카테고리를 삭제할까요? 포함된 프롬프트는 삭제하지 않으며 전체 목록에 유지합니다.", classificationDeleteTag: "「{name}」 하위 태그·섹션을 삭제할까요? {scope}에서 분류만 제거하며 프롬프트는 유지합니다.",
+    classificationScopeAll: "전체 카테고리", classificationScopeCategory: "「{name}」 카테고리", classificationAffected: "영향받는 프롬프트 {count}개", classificationInvalid: "이름을 확인해 주세요. 카테고리는 100자, 태그는 50자, 섹션은 160자 이내입니다.", classificationChanged: "분류를 변경했어요", classificationStale: "다른 탭에서 분류가 변경됐어요. 다시 열어 확인해 주세요.", classificationHint: "분류 수정·삭제를 켜면 각 항목의 연필과 휴지통으로 편집할 수 있어요. 전체는 기본 필터입니다.",
     managePrompts: "선택 관리", finishManaging: "선택 완료", selectPrompt: "{title} 선택", selectVisible: "현재 목록 전체 선택", clearSelection: "선택 해제", selectedCount: "{count}개 선택", deleteSelected: "선택 삭제",
     bulkDeleteConfirm: "선택한 프롬프트 {count}개를 삭제할까요?", reviewDuplicates: "중복 정리",
     duplicatesDescription: "현재 표시 언어의 전체 라이브러리에서 비교합니다. 본문 일치는 줄바꿈 형식과 앞뒤 공백만 무시합니다. 제목이 같은 항목은 내용이 다를 수 있으니 확인 후 선택하세요.",

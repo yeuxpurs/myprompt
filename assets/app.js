@@ -24,6 +24,7 @@
     deleted = null;
   let managing = false, selectedIds = new Set(), duplicateIds = new Set(), duplicateSnapshot = new Map();
   let duplicateMode = "body", pendingDelete = [], pendingDeleteSnapshot = new Map(), editorSnapshot = null;
+  let editingClassifications = false, classificationTarget = null;
   const deleteBackupKey = "myprompt.delete-backup";
   let toastTimer,
     generated = "",
@@ -115,14 +116,32 @@
   function routeLabel() {
     return t(route === "my" ? "myPrompts" : route);
   }
-  function items() {
+  function tagKey(label) {
+    const identity = core.tagIdentity(label);
+    return "tag:" + (tagAliases.get(identity) || identity);
+  }
+  function catalogItems(current = state) {
+    const metadata = new Map((current.layout.catalogMetadata || []).map((row) => [row.id, row]));
+    return catalog.map((item) => {
+      const localized = item.translations[language], meta = metadata.get(item.id) || {};
+      const edits = new Map((meta.tagEdits || []).map((entry) => [entry.key, entry.value]));
+      const entries = item.tags.flatMap((original, index) => {
+        const key = core.tagIdentity(original);
+        if (edits.get(key) === "") return [];
+        const label = edits.has(key) ? edits.get(key) : localized.tags[index];
+        return [[edits.has(key) ? tagKey(label) : "tag:" + key, label, key]];
+      });
+      return { ...item, ...localized, builtIn: true,
+        category: Object.hasOwn(meta, "category") ? meta.category : item.category,
+        tags: [...new Map(entries.map(([key, label]) => [key, label])).values()],
+        catalogTagEntries: entries };
+    });
+  }
+  function items(current = state) {
+    const overrides = new Set(current.prompts.map((p) => p.id));
     return [
-      ...catalog.filter((item) => !state.hiddenBuiltIns.includes(item.id) && !state.prompts.some((p) => p.id === item.id)).map((item) => ({
-        ...item,
-        ...item.translations[language],
-        builtIn: true,
-      })),
-      ...state.prompts.map((item) => ({ ...item, builtIn: false })),
+      ...catalogItems(current).filter((item) => !current.hiddenBuiltIns.includes(item.id) && !overrides.has(item.id)),
+      ...current.prompts.map((item) => ({ ...item, builtIn: false })),
     ];
   }
   function itemById(id) {
@@ -141,8 +160,7 @@
   function categoryOptions() {
     return ordered(
       [
-        ...categories,
-        ...state.prompts.map((p) => p.category).filter(Boolean),
+        ...items().map((p) => p.category).filter(Boolean),
         ...state.layout.categoryOrder.filter(Boolean),
       ],
       state.layout.categoryOrder,
@@ -161,13 +179,9 @@
       });
     }
   function promptTagEntries(p) {
-    const original = p.builtIn
-      ? catalog.find((item) => item.id === p.id)
-      : null;
-    return (p.tags || []).map((tag, index) => [
-      `tag:${original ? core.tagIdentity(original.tags[index]) : tagAliases.get(core.tagIdentity(tag)) || core.tagIdentity(tag)}`,
-      tag,
-    ]);
+    if (p.builtIn && p.catalogTagEntries)
+      return [...new Map(p.catalogTagEntries.map(([key, label]) => [key, [key, label]])).values()];
+    return [...new Map((p.tags || []).map((tag) => [tagKey(tag), [tagKey(tag), tag]])).values()];
   }
   function subtagOptions(cat = category) {
     const entries = new Map();
@@ -206,18 +220,156 @@
       )
       .join("")}</div>`;
   }
+  function classificationControls(kind, key) {
+    if (!editingClassifications || (kind === "category" && !key)) return "";
+    return `<span class="classification-actions"><button class="classification-button" data-classification-action="rename" aria-label="${escape(t("renameClassification"))}" title="${escape(t("renameClassification"))}">${icon("studio")}</button><button class="classification-button danger" data-classification-action="delete" aria-label="${escape(t("delete"))}" title="${escape(t("delete"))}">${icon("trash")}</button></span>`;
+  }
+  function mergeCatalogMetadata(existing, incoming) {
+    const rows = new Map(existing.map((row) => [row.id, { ...row }]));
+    for (const row of incoming) {
+      const previous = rows.get(row.id) || {};
+      const edits = new Map((previous.tagEdits || []).map((entry) => [entry.key, entry.value]));
+      for (const entry of row.tagEdits || []) edits.set(entry.key, entry.value);
+      const merged = { ...previous, ...row };
+      if (previous.tagEdits || row.tagEdits) merged.tagEdits = [...edits].map(([key, value]) => ({key, value}));
+      rows.set(row.id, merged);
+    }
+    return [...rows.values()];
+  }
+  function classificationSnapshot() {
+    return JSON.stringify({prompts: state.prompts, layout: state.layout, hiddenBuiltIns: state.hiddenBuiltIns, language});
+  }
+  function matchesClassification(p, target) {
+    if (target.kind === "category") return p.category === target.key;
+    if (target.group && p.category !== target.group) return false;
+    return target.key.startsWith("tag:")
+      ? promptTagEntries(p).some(([key]) => key === target.key)
+      : p.section === target.key;
+  }
+  function openClassification(kind, key, group = "", action = "rename") {
+    if (!["category", "subtag"].includes(kind) || !key) return;
+    const label = kind === "category" ? categoryName(key) : subtagOptions(group).find(([id]) => id === key)?.[1];
+    if (label === undefined || (kind === "category" && !categoryOptions().includes(key))) return;
+    classificationTarget = {kind, key, group, action, label, snapshot: classificationSnapshot()};
+    const scope = group ? t("classificationScopeCategory", {name: categoryName(group)}) : t("classificationScopeAll");
+    const count = items().filter((p) => matchesClassification(p, classificationTarget)).length;
+    const deleting = action === "delete";
+    const hint = deleting
+      ? t(kind === "category" ? "classificationDeleteCategory" : "classificationDeleteTag", {name: label, scope})
+      : t("classificationEditHint");
+    const maximum = kind === "category" ? core.limits.category : key.startsWith("tag:") ? core.limits.tag : core.limits.section;
+    openDialog(dialogHeader(t(deleting ? "classificationDeleteTitle" : "classificationEditTitle"), hint) +
+      `${deleting ? "" : '<form id="classification-form">'}<div class="dialog-content"><p class="classification-summary">${escape(t("classificationAffected", {count}))}${kind === "subtag" ? `<br>${escape(scope)}` : ""}</p>${deleting ? "" : `<div class="field"><label for="classification-name">${escape(t("classificationName"))}</label><input id="classification-name" value="${escape(label)}" maxlength="${maximum}" required></div>`}<p class="error-text" id="classification-error" role="alert"></p></div><footer class="dialog-actions"><button class="btn" type="button" data-action="close">${escape(t("cancel"))}</button>${deleting ? `<button class="btn danger" data-action="confirm-classification-delete">${escape(t("delete"))}</button>` : `<button class="btn primary" type="submit">${escape(t("save"))}</button>`}</footer>${deleting ? "" : "</form>"}`);
+    if (!deleting) document.getElementById("classification-name").focus();
+    else dialog.querySelector('[data-action="close"]')?.focus();
+  }
+  function changeClassification(current, target, name) {
+    const next = JSON.parse(JSON.stringify(current));
+    const deleting = name === null;
+    let value = deleting ? "" : String(name).trim();
+    const isTag = target.kind === "subtag" && target.key.startsWith("tag:");
+    const maximum = target.kind === "category" ? core.limits.category : isTag ? core.limits.tag : core.limits.section;
+    if (!deleting && (!value || value.length > maximum || /[\u0000-\u001f\u007f-\u009f]/.test(value))) throw new Error("name");
+    if (!deleting && target.kind === "subtag" && !isTag && value.startsWith("tag:")) throw new Error("reserved section name");
+    if (isTag && !deleting) value = core.normalizeTags([value])[0];
+    if (target.kind === "category" && !deleting)
+      value = categoryOptions().find((key) => categoryName(key) === value) || value;
+    const metadata = new Map((next.layout.catalogMetadata || []).map((row) => [row.id, row]));
+    const metadataFor = (id) => {
+      if (!metadata.has(id)) metadata.set(id, {id});
+      return metadata.get(id);
+    };
+    const now = new Date().toISOString();
+    next.prompts = next.prompts.map((p) => {
+      if (!matchesClassification(p, target)) return p;
+      if (target.kind === "category") return {...p, category: value, updatedAt: now};
+      if (!isTag) return {...p, section: value, updatedAt: now};
+      const changed = core.normalizeTags(p.tags.flatMap((tag) => tagKey(tag) === target.key || (!deleting && tagKey(tag) === tagKey(value)) ? deleting ? [] : [value] : [tag]));
+      const tags = [...new Map(changed.map((tag) => [tagKey(tag), tag])).values()];
+      return {...p, tags, updatedAt: now};
+    });
+    // Catalog metadata changes stay separate from its seven translated bodies.
+    for (const p of catalogItems(current)) {
+      if (!matchesClassification(p, target)) continue;
+      const meta = metadataFor(p.id);
+      if (target.kind === "category") meta.category = value;
+      else if (isTag) {
+        const edits = new Map((meta.tagEdits || []).map((entry) => [entry.key, entry.value]));
+        for (const [key, , originalKey] of p.catalogTagEntries)
+          if (key === target.key || (!deleting && key === tagKey(value))) edits.set(originalKey, value);
+        meta.tagEdits = [...edits].map(([key, value]) => ({key, value}));
+      }
+    }
+    next.layout.catalogMetadata = [...metadata.values()];
+    if (target.kind === "category") {
+      next.layout.categoryOrder = [...new Set(next.layout.categoryOrder.flatMap((key) => key === target.key ? deleting ? [] : [value] : [key]))];
+      if (!deleting && !next.layout.categoryOrder.includes(value)) next.layout.categoryOrder.push(value);
+      const rows = new Map();
+      for (const row of next.layout.tagOrder) {
+        if (deleting && row.category === target.key) continue;
+        const key = row.category === target.key ? value : row.category;
+        rows.set(key, [...new Set([...(rows.get(key) || []), ...row.tags])]);
+      }
+      next.layout.tagOrder = [...rows].map(([category, tags]) => ({category, tags}));
+    } else {
+      const replacement = deleting ? "" : isTag ? tagKey(value) : value;
+      const updateKeys = (keys) => [...new Set(keys.flatMap((key) => key === target.key ? deleting ? [] : [replacement] : [key]))];
+      next.layout.tagOrder = next.layout.tagOrder.map((row) =>
+        !target.group || row.category === target.group ? {...row, tags: updateKeys(row.tags)} : row);
+      if (target.group) {
+        const stillUsed = items(next).some((p) => matchesClassification(p, {...target, group: ""})) ||
+          next.layout.tagOrder.some((row) => row.category && row.tags.includes(target.key));
+        if (!stillUsed) next.layout.tagOrder = next.layout.tagOrder.map((row) => row.category === "" ? {...row, tags: updateKeys(row.tags)} : row);
+      }
+    }
+    next.layout = core.normalizeLayout(next.layout);
+    return next;
+  }
+  function saveClassification(name) {
+    if (!classificationTarget) return;
+    if (classificationSnapshot() !== classificationTarget.snapshot) {
+      document.getElementById("classification-error").textContent = t("classificationStale");
+      return;
+    }
+    if (name !== null && String(name).trim() === classificationTarget.label) {
+      classificationTarget = null;
+      dialog.close();
+      return;
+    }
+    let next;
+    try { next = changeClassification(state, classificationTarget, name); }
+    catch (_) {
+      document.getElementById("classification-error").textContent = t("classificationInvalid");
+      return;
+    }
+    if (!store.save(next)) {
+      store.save(state);
+      document.getElementById("classification-error").textContent = t("storageError");
+      return;
+    }
+    const old = classificationTarget;
+    state = next;
+    if (old.kind === "category" && category === old.key) {
+      category = name === null ? "" : categoryOptions().find((key) => categoryName(key) === String(name).trim()) || String(name).trim();
+    }
+    tagFilter = "";
+    classificationTarget = null;
+    dialog.close();
+    render();
+    notify(t("classificationChanged"));
+  }
   function filterRows() {
-    return `<div class="arrange-heading"><span>${escape(t("arrange"))}<small>${escape(t("arrangementHint"))}</small></span><button class="btn quiet" data-action="layout-editor">${icon("coding")}${escape(t("layoutEditor"))}</button></div>
+    return `<div class="arrange-heading"><span>${escape(t("arrange"))}<small>${escape(t("arrangementHint"))}</small></span><div class="classification-heading-actions"><button class="btn quiet" data-action="manage-classifications" aria-pressed="${editingClassifications}">${icon("studio")}${escape(t(editingClassifications ? "finishClassification" : "manageClassification"))}</button><button class="btn quiet" data-action="layout-editor">${icon("coding")}${escape(t("layoutEditor"))}</button></div></div>${editingClassifications ? `<p class="classification-help">${escape(t("classificationHint"))}</p>` : ""}
       <div class="filters" role="group" aria-label="${escape(t("categoryLabel"))}">${categorySequence()
         .map(
           (cat) =>
-            `<span class="sortable-chip ${category === cat ? "active" : ""}" ${orderAttrs("category", cat)}>${dragHandle(cat ? categoryName(cat) : t("all"))}<button class="filter" data-category="${escape(cat)}" aria-pressed="${category === cat}">${escape(cat ? categoryName(cat) : t("all"))}</button></span>`,
+            `<span class="sortable-chip ${category === cat ? "active" : ""}" ${orderAttrs("category", cat)}>${dragHandle(cat ? categoryName(cat) : t("all"))}<button class="filter" data-category="${escape(cat)}" aria-pressed="${category === cat}">${escape(cat ? categoryName(cat) : t("all"))}</button>${classificationControls("category", cat)}</span>`,
         )
         .join("")}</div>
       <div class="subtag-row"><span class="subtag-label">${escape(t("subcategories"))}</span><div class="subtag-filters" role="group" aria-label="${escape(t("subcategories"))}"><button class="subtag-all ${!tagFilter ? "active" : ""}" data-filter-tag="" aria-pressed="${!tagFilter}">${escape(t("allSubtags"))}</button>${subtagOptions()
         .map(
           ([key, label]) =>
-            `<span class="sortable-chip subtag ${tagFilter === key ? "active" : ""}" ${orderAttrs("subtag", key, category)}>${dragHandle(label)}<button class="filter" data-filter-tag="${escape(key)}" aria-pressed="${tagFilter === key}">${key.startsWith("tag:") ? "#" : ""}${escape(label)}</button></span>`,
+            `<span class="sortable-chip subtag ${tagFilter === key ? "active" : ""}" ${orderAttrs("subtag", key, category)}>${dragHandle(label)}<button class="filter" data-filter-tag="${escape(key)}" aria-pressed="${tagFilter === key}">${key.startsWith("tag:") ? "#" : ""}${escape(label)}</button>${classificationControls("subtag", key)}</span>`,
         )
         .join("")}</div></div>`;
   }
@@ -500,7 +652,7 @@
       title: "",
       description: "",
       body: "",
-      category: category || "work",
+      category: category || categoryOptions()[0] || "",
       section: tagFilter && !tagFilter.startsWith("tag:") ? tagFilter : "",
       tags: [],
     };
@@ -780,6 +932,7 @@
         ...new Set([...row.tags, ...(rows.get(row.category) || [])]),
       ]);
     return core.normalizeLayout({
+      catalogMetadata: mergeCatalogMetadata(existing.catalogMetadata || [], incoming.catalogMetadata || []),
       categoryOrder: [
         ...new Set([...incoming.categoryOrder, ...existing.categoryOrder]),
       ],
@@ -1097,6 +1250,11 @@
       render();
       return;
     }
+    if (target.dataset.classificationAction) {
+      const chip = target.closest("[data-order-kind]");
+      if (chip) openClassification(chip.dataset.orderKind, chip.dataset.orderKey, chip.dataset.orderGroup || "", target.dataset.classificationAction);
+      return;
+    }
     if (target.hasAttribute("data-drag-handle")) {
       event.preventDefault();
       return;
@@ -1157,6 +1315,13 @@
         document.getElementById("edit-tags").value = "";
         renderTagEditor();
         document.getElementById("edit-tags").focus();
+        break;
+      case "manage-classifications":
+        editingClassifications = !editingClassifications;
+        renderPage();
+        break;
+      case "confirm-classification-delete":
+        saveClassification(null);
         break;
       case "layout-editor":
         openLayoutEditor();
@@ -1275,7 +1440,7 @@
             title: (draft.goal || t("generatedTitle")).slice(0, 160),
             description: "",
             body: generated,
-            category: "work",
+            category: category || categoryOptions()[0] || "",
             tags: [],
           },
           true,
@@ -1340,6 +1505,10 @@
     if (event.target.id === "import-file") importLibrary(event.target.files[0]);
   });
   document.addEventListener("submit", (event) => {
+    if (event.target.id === "classification-form") {
+      event.preventDefault();
+      saveClassification(document.getElementById("classification-name").value);
+    }
     if (event.target.id === "editor-form") {
       event.preventDefault();
       saveEditor(event.target);

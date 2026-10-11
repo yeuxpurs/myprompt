@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const core = require('../assets/core.js');
 const instant = '2026-09-27T00:00:00.000Z';
 const prompt = (overrides = {}) => ({ id: 'p-test', title: 'Review', description: '', body: 'Review {{ source }} for {{audience}}.', category: 'Writing', tags: ['review'], createdAt: instant, updatedAt: instant, ...overrides });
-const state = (overrides = {}) => ({ version: 2, prompts: [], favorites: [], hiddenBuiltIns: [], language: 'ja', layout: { categoryOrder: [], tagOrder: [], promptOrder: [] }, ...overrides });
+const state = (overrides = {}) => ({ version: 2, prompts: [], favorites: [], hiddenBuiltIns: [], language: 'ja', ...overrides, layout: { categoryOrder: [], tagOrder: [], promptOrder: [], catalogMetadata: [], ...overrides.layout } });
 const legacy = { cats: [{ id: 'cat', name: '仕事', tasks: [{ id: 'task', name: 'レビュー', prompts: ['First {{資料}}', 'Second prompt'] }] }] };
 function storage(initial = {}) {
   const values = new Map(Object.entries(initial));
@@ -267,7 +267,7 @@ test('malformed legacy data cannot crash initialization or replace its original'
 });
 
 test('layout preserves explicit all/category, section/tag, and prompt orders across storage and JSON', () => {
-  const layout = { categoryOrder: ['仕事', '', 'Empty'], tagOrder: [{ category: '仕事', tags: ['二番目', '一番目', 'Review'] }, { category: 'Empty', tags: [] }], promptOrder: ['p-second', 'p-first'] };
+  const layout = { categoryOrder: ['仕事', '', 'Empty'], tagOrder: [{ category: '仕事', tags: ['二番目', '一番目', 'Review'] }, { category: 'Empty', tags: [] }], promptOrder: ['p-second', 'p-first'], catalogMetadata: [] };
   const original = state({ layout, language: 'ko', prompts: [prompt({ id: 'p-first' }), prompt({ id: 'p-second', body: 'Second' })] });
   const saved = storage();
   assert.equal(core.createStore(saved).save(original), true);
@@ -283,7 +283,7 @@ test('layout preserves explicit all/category, section/tag, and prompt orders acr
 test('layout normalization deduplicates stably without mutating input or conflating case-sensitive sections', () => {
   const original = { categoryOrder: [' Empty ', '', 'Empty', 'empty'], tagOrder: [{ category: ' Empty ', tags: ['Section', 'Section', 'section'] }, { category: 'Empty', tags: ['Later', 'Section'] }], promptOrder: ['p-b', 'p-a', 'p-b'] };
   const before = JSON.stringify(original);
-  assert.deepEqual(core.normalizeLayout(original), { categoryOrder: ['Empty', '', 'empty'], tagOrder: [{ category: 'Empty', tags: ['Section', 'section', 'Later'] }], promptOrder: ['p-b', 'p-a'] });
+  assert.deepEqual(core.normalizeLayout(original), { categoryOrder: ['Empty', '', 'empty'], tagOrder: [{ category: 'Empty', tags: ['Section', 'section', 'Later'] }], promptOrder: ['p-b', 'p-a'], catalogMetadata: [] });
   assert.equal(JSON.stringify(original), before);
   assert.deepEqual(core.normalizeLayout(), state().layout);
 });
@@ -367,7 +367,7 @@ test('legacy empty section and uncategorized prompts remain editable with their 
 });
 
 test('wrapped legacy backups preserve outer layout, favorites, and language preferences', () => {
-  const layout = { categoryOrder: ['Empty', ''], tagOrder: [{ category: 'Empty', tags: ['tag:review', 'Task'] }], promptOrder: ['p-test'] };
+  const layout = { categoryOrder: ['Empty', ''], tagOrder: [{ category: 'Empty', tags: ['tag:review', 'Task'] }], promptOrder: ['p-test'], catalogMetadata: [] };
   const library = { version: 2, promptUIData: { cats: [{ name: 'Writing', tasks: [{ name: '', prompts: [prompt().body], promptMeta: [prompt()] }] }] }, layout, favorites: ['p-test'], language: 'vi' };
   const parsed = core.parseDocument(JSON.stringify(library));
   assert.deepEqual(parsed.layout, layout);
@@ -510,4 +510,69 @@ test('deletion and restoration reject invalid input atomically and enforce the p
   assert.throws(() => core.restoreDeleted(full, deleted.undo), { code: 'PROMPT_LIMIT' });
   assert.equal(full.prompts.length, core.limits.prompts);
   assert.equal(JSON.stringify(original), before);
+});
+
+test('catalog layout metadata is sparse and normalizes category labels and canonical tag keys', () => {
+  const original = { catalogMetadata: [
+    { id: 'starter-brief', category: '  업무  ', tagEdits: [{ key: ' ＡＩ ', value: ' 업무용 AI ' }, { key: 'Review', value: ' ' }] },
+    { id: 'starter-review', category: '' },
+    { id: 'p-general', tagEdits: [] },
+    { id: 'starter-other' }
+  ] };
+  const before = JSON.stringify(original);
+  const expected = [
+    { id: 'starter-brief', category: '업무', tagEdits: [{ key: 'ai', value: '업무용 AI' }, { key: 'review', value: '' }] },
+    { id: 'starter-review', category: '' },
+    { id: 'p-general', tagEdits: [] },
+    { id: 'starter-other' }
+  ];
+  const result = core.normalizeLayout(original);
+  assert.deepEqual(result.catalogMetadata, expected);
+  assert.deepEqual(core.normalizeLayout(result), result);
+  assert.equal(Object.hasOwn(result.catalogMetadata[1], 'tagEdits'), false);
+  assert.equal(Object.hasOwn(result.catalogMetadata[2], 'category'), false);
+  assert.equal(JSON.stringify(original), before);
+  result.catalogMetadata[0].tagEdits[0].value = 'Changed copy';
+  assert.equal(JSON.stringify(original), before);
+});
+
+test('invalid or ambiguous catalog layout metadata is rejected atomically', () => {
+  const row = { id: 'starter-brief', tagEdits: [{ key: 'review', value: 'Review' }] };
+  const invalid = [
+    null, {}, Array(1), Array(5001).fill(row),
+    [{}], [{ id: '__proto__' }], [{ id: 'bad id' }], [row, row],
+    [{ id: 'starter-brief', category: null }], [{ id: 'starter-brief', category: 'x'.repeat(101) }],
+    [{ id: 'starter-brief', tagEdits: null }], [{ id: 'starter-brief', tagEdits: Array(1) }],
+    [{ id: 'starter-brief', tagEdits: Array(21).fill({ key: 'x', value: 'x' }) }],
+    [{ id: 'starter-brief', tagEdits: [{ key: 'AI', value: 'One' }, { key: 'ＡＩ', value: 'Two' }] }]
+  ];
+  for (const edit of [{}, { key: '', value: 'x' }, { key: 'tag:review', value: 'x' }, { key: 'x'.repeat(51), value: '' }, { key: 'ﬃ'.repeat(20), value: '' }, { key: 'bad\nkey', value: 'x' }, { key: 'review', value: null }, { key: 'review', value: 'x'.repeat(51) }, { key: 'review', value: 'bad\tlabel' }]) {
+    invalid.push([{ id: 'starter-brief', tagEdits: [edit] }]);
+  }
+  for (const catalogMetadata of invalid) assert.throws(() => core.normalizeLayout({ catalogMetadata }));
+  const accessor = Object.defineProperty({ id: 'starter-brief' }, 'category', { enumerable: true, get() { throw new Error('Getter must not execute'); } });
+  assert.throws(() => core.normalizeLayout({ catalogMetadata: [accessor] }), /Accessors/);
+  const initial = state({ prompts: [prompt()] });
+  const saved = storage({ 'myprompt.v2': JSON.stringify(initial) });
+  const store = core.createStore(saved);
+  assert.equal(store.save(state({ layout: { catalogMetadata: [row, row] } })), false);
+  assert.deepEqual(store.load(), initial);
+  assert.deepEqual(JSON.parse(saved.getItem('myprompt.v2')), initial);
+});
+
+test('catalog layout metadata persists through reload and legacy migration without copying prompt bodies', () => {
+  const catalogMetadata = [{ id: 'starter-brief', category: 'Work', tagEdits: [{ key: 'review', value: 'Inspection' }, { key: 'writing', value: '' }] }, { id: 'starter-review', category: '' }];
+  const original = state({ layout: { catalogMetadata } });
+  const saved = storage();
+  assert.equal(core.createStore(saved).save(original), true);
+  assert.deepEqual(core.createStore(saved).load(), original);
+  assert.deepEqual(core.parseDocument(JSON.stringify(original)).layout.catalogMetadata, catalogMetadata);
+  assert.deepEqual(JSON.parse(saved.getItem('myprompt.v2')).prompts, []);
+  for (const source of [{ cats: [], layout: original.layout }, { data: { cats: [] }, layout: original.layout }, { promptUIData: { cats: [], layout: original.layout } }]) {
+    assert.deepEqual(core.parseDocument(JSON.stringify(source)).layout.catalogMetadata, catalogMetadata);
+    const legacySaved = storage({ promptUIData: JSON.stringify(source) });
+    assert.deepEqual(core.createStore(legacySaved).load().layout.catalogMetadata, catalogMetadata);
+  }
+  const older = { categoryOrder: ['writing'], tagOrder: [], promptOrder: [] };
+  assert.deepEqual(core.normalizeLayout(older), { ...older, catalogMetadata: [] });
 });

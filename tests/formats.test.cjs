@@ -6,7 +6,7 @@ const core = require('../assets/core.js');
 const formats = require('../assets/formats.js');
 const instant = '2026-09-27T00:00:00.000Z';
 const prompt = (overrides = {}) => ({ id: 'p-one', title: 'A title', description: 'A description', body: 'A body', category: 'Writing', tags: ['second', 'first'], createdAt: instant, updatedAt: instant, ...overrides });
-const state = (overrides = {}) => ({ version: 2, prompts: [], favorites: [], hiddenBuiltIns: [], language: 'ko', layout: { categoryOrder: [], tagOrder: [], promptOrder: [] }, ...overrides });
+const state = (overrides = {}) => ({ version: 2, prompts: [], favorites: [], hiddenBuiltIns: [], language: 'ko', ...overrides, layout: { categoryOrder: [], tagOrder: [], promptOrder: [], catalogMetadata: [], ...overrides.layout } });
 const content = document => ({ prompts: document.prompts, layout: document.layout, favorites: document.favorites, hiddenBuiltIns: document.hiddenBuiltIns, language: document.language });
 
 test('all original JSON wrappers accept legacy string prompts and preserve empty categories/tasks', () => {
@@ -162,4 +162,31 @@ test('legacy JSON envelope positions and Markdown workspace metadata preserve hi
   }
   assert.deepEqual(formats.parse('<!-- myprompt: {"hiddenBuiltIns":["starter-review"]} -->', 'md').hiddenBuiltIns, ['starter-review']);
   assert.throws(() => formats.parse('<!-- myprompt: {"hiddenBuiltIns":["constructor"]} -->', 'md'));
+});
+
+test('sparse catalog category and tag edits survive JSON and Markdown without materializing built-ins', () => {
+  const catalogMetadata = [
+    { id: 'starter-brief', category: '업무', tagEdits: [{ key: 'writing', value: '메모' }, { key: 'review', value: '' }] },
+    { id: 'starter-review', category: '' }
+  ];
+  for (const prompts of [[], [prompt({ section: 'Review' })]]) {
+    const original = state({ prompts, layout: { catalogMetadata } });
+    for (const format of ['json', 'md']) {
+      const parsed = formats.parse(formats.serialize(original, format), format);
+      assert.deepEqual(parsed.layout.catalogMetadata, catalogMetadata, format);
+      assert.deepEqual(parsed.prompts, prompts, format);
+      const repeated = formats.parse(formats.serialize(parsed, format), format);
+      assert.deepEqual(content(repeated), content(parsed), format);
+    }
+  }
+});
+
+test('editing an exported hierarchy retains independent catalog metadata and validates invalid edits', () => {
+  const catalogMetadata = [{ id: 'starter-brief', category: '', tagEdits: [{ key: 'review', value: '' }] }];
+  const source = JSON.parse(formats.serialize(state({ prompts: [prompt({ section: 'Review' })], layout: { catalogMetadata } })));
+  source.promptUIData.cats[0].name = 'Renamed category';
+  assert.deepEqual(formats.parse(JSON.stringify(source)).layout.catalogMetadata, catalogMetadata);
+  source.layout.catalogMetadata.push({ id: 'starter-brief', category: 'Conflicting category' });
+  assert.throws(() => formats.parse(JSON.stringify(source)));
+  assert.throws(() => formats.parse('<!-- myprompt: {"layout":{"catalogMetadata":[{"id":"starter-brief","tagEdits":[{"key":"tag:review","value":""}]}]}} -->', 'md'));
 });

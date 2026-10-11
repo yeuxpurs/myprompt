@@ -1829,6 +1829,69 @@ html[lang="ko"] h3 {
   color: var(--accent);
   font-weight: 600;
 }
+.sortable-chip > .filter {
+  min-width: 0;
+}
+.classification-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
+  margin-left: 2px;
+  padding: 2px 4px;
+  border-left: 1px solid #dce4d9;
+}
+.classification-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  width: 28px;
+  min-height: 28px;
+  padding: 5px;
+  border-radius: 5px;
+  color: var(--accent);
+}
+.classification-button svg {
+  width: 14px;
+  height: 14px;
+}
+.classification-button:hover {
+  background: #dfeadf;
+}
+.classification-button.danger {
+  color: #a23832;
+}
+.classification-button.danger:hover {
+  background: #fff0ed;
+}
+.classification-help {
+  margin: 0 0 15px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.8;
+}
+.classification-summary {
+  margin: 12px 0 18px;
+  padding: 13px 15px;
+  border: 1px solid #d6e4d8;
+  border-radius: 8px;
+  background: var(--soft);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.classification-summary p + p {
+  margin-top: 8px;
+}
+@media (max-width: 800px) {
+  .classification-button {
+    flex-basis: 34px;
+    width: 34px;
+    min-height: 34px;
+  }
+}
 .filters {
   margin-bottom: 13px;
 }
@@ -2159,3 +2222,5 @@ html[lang="ko"] h3 {
     padding: 8px;
   }
 }
+
+.classification-heading-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

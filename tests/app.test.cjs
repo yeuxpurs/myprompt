@@ -10,7 +10,7 @@ const vm = require('node:vm');
 const root = join(__dirname, '..');
 const instant = '2026-09-27T00:00:00.000Z';
 const prompt = (overrides = {}) => ({ id: 'p-one', title: 'Personal prompt', description: '', body: 'Unique personal content', category: 'writing', tags: [], createdAt: instant, updatedAt: instant, ...overrides });
-const state = (overrides = {}) => ({ version: 2, prompts: [], favorites: [], hiddenBuiltIns: [], language: 'en', layout: { categoryOrder: [], tagOrder: [], promptOrder: [] }, ...overrides });
+const state = (overrides = {}) => ({ version: 2, prompts: [], favorites: [], hiddenBuiltIns: [], language: 'en', ...overrides, layout: { categoryOrder: [], tagOrder: [], promptOrder: [], catalogMetadata: [], ...overrides.layout } });
 const clone = value => JSON.parse(JSON.stringify(value));
 
 function storage(initial) {
@@ -62,7 +62,10 @@ function application(saved = storage(state())) {
   render = function () {};
   window.applicationTest = {
     items, itemById, openEditor, saveEditor, requestDelete, deletePending,
-    undoDeletion, openDuplicates, t,
+    undoDeletion, openDuplicates, t, catalogItems, promptTagEntries,
+    categoryOptions, subtagOptions, openClassification, saveClassification,
+    mergeCatalogMetadata,
+    setLanguage: function (value) { language = value; },
     state: function () { return JSON.stringify(state); }
   };
   if (` + source.slice(offset + entry.length);
@@ -214,4 +217,184 @@ test('a failed later deletion and a failed Undo retain the previous restorable b
   ui.saved.failures.clear();
   ui.app.undoDeletion();
   assert.deepEqual(ui.current(), original);
+});
+
+function classify(ui, kind, key, group, name) {
+  ui.app.openClassification(kind, key, group, name === null ? 'delete' : 'rename');
+  assert.equal(ui.node('prompt-dialog').open, true, 'classification editor opens');
+  ui.app.saveClassification(name);
+  assert.equal(ui.node('prompt-dialog').open, false, ui.node('classification-error').textContent);
+}
+const subtagKeys = (ui, group = '') => clone(ui.app.subtagOptions(group)).map(([key]) => key);
+const bodies = ui => ui.items().map(({ id, body }) => ({ id, body }));
+
+test('category rename and merge update assignments and ordering without copying or modifying prompt content', () => {
+  const original = state({
+    prompts: [prompt(), prompt({ id: 'p-pool', category: 'Review pool', body: 'Another body' }), prompt({ id: 'p-work', category: 'work', body: 'Unrelated body' })],
+    favorites: ['source-led-article', 'p-one'],
+    layout: { categoryOrder: ['writing', 'Review pool', 'work'], tagOrder: [{ category: 'writing', tags: ['First'] }, { category: 'Review pool', tags: ['Second'] }] }
+  });
+  const ui = application(storage(original));
+  const originalBodies = bodies(ui), count = ui.items().length;
+  const builtinIds = ui.items().filter(item => item.builtIn && item.category === 'writing').map(item => item.id);
+  classify(ui, 'category', 'writing', '', 'Notes');
+  assert.equal(ui.app.itemById('p-one').category, 'Notes');
+  assert.ok(builtinIds.every(id => ui.app.itemById(id).category === 'Notes'));
+  assert.equal(ui.app.categoryOptions().includes('writing'), false);
+  classify(ui, 'category', 'Notes', '', 'Review pool');
+  assert.deepEqual(ui.current().layout.categoryOrder, ['Review pool', 'work']);
+  assert.deepEqual(ui.current().layout.tagOrder.find(row => row.category === 'Review pool').tags, ['First', 'Second']);
+  assert.equal(ui.app.itemById('p-one').category, 'Review pool');
+  assert.equal(ui.app.itemById('p-pool').category, 'Review pool');
+  assert.equal(ui.app.itemById('p-work').category, 'work');
+  assert.equal(ui.app.categoryOptions().includes('Notes'), false);
+  assert.equal(ui.current().prompts.length, original.prompts.length);
+  assert.equal(ui.items().length, count);
+  assert.deepEqual(bodies(ui), originalBodies);
+  assert.deepEqual(ui.current().favorites, original.favorites);
+  assert.ok(builtinIds.every(id => ui.current().layout.catalogMetadata.find(row => row.id === id).category === 'Review pool'));
+});
+
+test('category deletion leaves prompts uncategorized and removes category ghosts after reload', () => {
+  const original = state({
+    prompts: [prompt(), prompt({ id: 'p-keep', category: 'Keep' })], favorites: ['p-one', 'source-led-article'],
+    layout: { categoryOrder: ['writing', 'Keep'], tagOrder: [{ category: 'writing', tags: ['Empty section'] }] }
+  });
+  const ui = application(storage(original)), originalBodies = bodies(ui);
+  const affected = ui.items().filter(item => item.category === 'writing').map(item => item.id);
+  classify(ui, 'category', 'writing', '', null);
+  for (const id of affected) assert.equal(ui.app.itemById(id).category, '');
+  assert.equal(ui.app.categoryOptions().includes('writing'), false);
+  assert.equal(ui.current().layout.categoryOrder.includes('writing'), false);
+  assert.equal(ui.current().layout.tagOrder.some(row => row.category === 'writing'), false);
+  const reload = application(ui.saved);
+  assert.equal(reload.app.categoryOptions().includes('writing'), false);
+  assert.equal(reload.app.itemById('p-keep').category, 'Keep');
+  assert.deepEqual(bodies(reload), originalBodies);
+  assert.deepEqual(reload.current().favorites, original.favorites);
+  assert.equal(reload.current().prompts.length, 2);
+});
+
+test('scoped tag rename can be repeated and deleted while the original tag remains in other categories', () => {
+  const ui = application(storage(state({
+    prompts: [prompt({ category: 'Dept A', tags: ['TopicA'] }), prompt({ id: 'p-other', category: 'Dept B', tags: ['TopicA'] })],
+    layout: { tagOrder: [{ category: '', tags: ['tag:topica'] }, { category: 'Dept A', tags: ['tag:topica'] }, { category: 'Dept B', tags: ['tag:topica'] }] }
+  })));
+  classify(ui, 'subtag', 'tag:topica', 'Dept A', 'TopicX');
+  assert.deepEqual(clone(ui.app.itemById('p-one').tags), ['TopicX']);
+  assert.deepEqual(clone(ui.app.itemById('p-other').tags), ['TopicA']);
+  assert.ok(subtagKeys(ui).includes('tag:topica'));
+  assert.ok(subtagKeys(ui).includes('tag:topicx'));
+  assert.equal(subtagKeys(ui, 'Dept A').includes('tag:topica'), false);
+  classify(ui, 'subtag', 'tag:topicx', 'Dept A', 'TopicY');
+  assert.deepEqual(clone(ui.app.itemById('p-one').tags), ['TopicY']);
+  assert.equal(subtagKeys(ui).includes('tag:topicx'), false);
+  classify(ui, 'subtag', 'tag:topicy', 'Dept A', null);
+  assert.deepEqual(clone(ui.app.itemById('p-one').tags), []);
+  assert.deepEqual(clone(ui.app.itemById('p-other').tags), ['TopicA']);
+  assert.ok(subtagKeys(ui).includes('tag:topica'));
+  assert.equal(subtagKeys(ui).includes('tag:topicy'), false);
+  const reload = application(ui.saved);
+  assert.deepEqual(clone(reload.app.itemById('p-one').tags), []);
+  assert.ok(subtagKeys(reload, 'Dept B').includes('tag:topica'));
+});
+
+test('merged built-in tags appear once and deleting the effective tag removes every original contributor', () => {
+  const ui = application(), source = ui.app.itemById('source-led-article');
+  const originalBody = source.body;
+  classify(ui, 'subtag', 'tag:article', 'writing', 'brief');
+  assert.deepEqual(clone(ui.app.promptTagEntries(ui.app.itemById(source.id))).map(([key]) => key), ['tag:brief', 'tag:sources']);
+  assert.deepEqual(clone(ui.app.itemById(source.id).tags), ['brief', 'sources']);
+  assert.equal(ui.current().prompts.length, 0);
+  classify(ui, 'subtag', 'tag:brief', 'writing', null);
+  assert.deepEqual(clone(ui.app.promptTagEntries(ui.app.itemById(source.id))).map(([key]) => key), ['tag:sources']);
+  assert.deepEqual(ui.current().layout.catalogMetadata.find(row => row.id === source.id).tagEdits, [{ key: 'article', value: '' }, { key: 'brief', value: '' }]);
+  assert.equal(ui.app.itemById(source.id).body, originalBody);
+  const reload = application(ui.saved);
+  assert.deepEqual(clone(reload.app.itemById(source.id).tags), ['sources']);
+});
+
+test('scoped and global section edits clean saved empty-section entries without removing other sections', () => {
+  const ui = application(storage(state({
+    prompts: [prompt({ category: 'Dept A', section: 'Old section' }), prompt({ id: 'p-other', category: 'Dept B', section: 'Old section' })],
+    layout: { categoryOrder: ['Dept A', 'Dept B', 'Empty'], tagOrder: [{ category: '', tags: ['Old section', 'Vacant'] }, { category: 'Dept A', tags: ['Old section', 'Vacant'] }, { category: 'Dept B', tags: ['Old section'] }, { category: 'Empty', tags: ['Vacant'] }] }
+  })));
+  classify(ui, 'subtag', 'Old section', 'Dept A', 'Renamed section');
+  assert.equal(ui.app.itemById('p-one').section, 'Renamed section');
+  assert.equal(ui.app.itemById('p-other').section, 'Old section');
+  assert.ok(subtagKeys(ui).includes('Old section'));
+  classify(ui, 'subtag', 'Old section', '', 'Renamed section');
+  assert.equal(ui.app.itemById('p-other').section, 'Renamed section');
+  assert.equal(subtagKeys(ui).includes('Old section'), false);
+  classify(ui, 'subtag', 'Renamed section', '', null);
+  assert.equal(ui.app.itemById('p-one').section, '');
+  assert.equal(ui.app.itemById('p-other').section, '');
+  assert.equal(subtagKeys(ui).includes('Renamed section'), false);
+  classify(ui, 'subtag', 'Vacant', 'Dept A', null);
+  assert.equal(subtagKeys(ui, 'Dept A').includes('Vacant'), false);
+  assert.ok(subtagKeys(ui).includes('Vacant'));
+  classify(ui, 'subtag', 'Vacant', '', null);
+  assert.equal(ui.current().layout.tagOrder.some(row => row.tags.includes('Vacant')), false);
+  const reload = application(ui.saved);
+  assert.equal(subtagKeys(reload).some(key => ['Old section', 'Renamed section', 'Vacant'].includes(key)), false);
+  assert.equal(reload.current().prompts.length, 2);
+});
+
+test('classification storage failures and stale snapshots preserve existing assignments', () => {
+  const original = state({ prompts: [prompt({ category: 'Dept A', tags: ['TopicA'] })] });
+  const ui = application(storage(original));
+  ui.app.openClassification('category', 'Dept A');
+  ui.saved.failures.add('myprompt.v2');
+  ui.app.saveClassification('Renamed');
+  assert.deepEqual(ui.current(), original);
+  assert.deepEqual(JSON.parse(ui.saved.getItem('myprompt.v2')), original);
+  assert.equal(ui.node('classification-error').textContent, ui.app.t('storageError'));
+  assert.equal(ui.node('prompt-dialog').open, true);
+  ui.saved.failures.clear();
+  const newer = state({ prompts: [prompt({ category: 'Dept A', tags: ['TopicA'], body: 'Newer body' })] });
+  ui.dispatchStorage(newer);
+  ui.app.saveClassification('Renamed');
+  assert.deepEqual(ui.current().prompts, newer.prompts);
+  assert.equal(ui.node('classification-error').textContent, ui.app.t('classificationStale'));
+  assert.equal(ui.node('prompt-dialog').open, true);
+});
+
+test('imported catalog metadata merges independent fields and updates tags by original key', () => {
+  const ui = application();
+  const existing = [{ id: 'source-led-article', category: 'Notes', tagEdits: [{ key: 'article', value: 'Draft' }, { key: 'brief', value: 'Outline' }] }, { id: 'localization-editor', category: 'Languages' }];
+  const incoming = [{ id: 'source-led-article', tagEdits: [{ key: 'article', value: '' }, { key: 'sources', value: 'References' }] }, { id: 'localization-editor', category: '' }];
+  const before = JSON.stringify([existing, incoming]);
+  const merged = clone(ui.app.mergeCatalogMetadata(existing, incoming));
+  assert.deepEqual(merged, [{ id: 'source-led-article', category: 'Notes', tagEdits: [{ key: 'article', value: '' }, { key: 'brief', value: 'Outline' }, { key: 'sources', value: 'References' }] }, { id: 'localization-editor', category: '' }]);
+  assert.equal(JSON.stringify([existing, incoming]), before);
+});
+
+test('built-in category and tag edits keep all translated bodies and untouched translated tag labels', () => {
+  const ui = application(), source = ui.app.itemById('source-led-article');
+  classify(ui, 'category', 'writing', '', 'My notes');
+  classify(ui, 'subtag', 'tag:article', 'My notes', 'My drafts');
+  ui.app.setLanguage('ko');
+  const korean = ui.app.itemById(source.id);
+  assert.equal(korean.body, source.translations.ko.body);
+  assert.equal(korean.title, source.translations.ko.title);
+  assert.equal(korean.category, 'My notes');
+  assert.deepEqual(clone(korean.tags), ['My drafts', ...clone(source.translations.ko.tags).slice(1)]);
+  assert.notEqual(korean.body, source.body);
+  assert.equal(ui.current().prompts.length, 0);
+  ui.app.setLanguage('ja');
+  assert.equal(ui.app.itemById(source.id).body, source.translations.ja.body);
+  assert.equal(ui.app.itemById(source.id).category, 'My notes');
+});
+
+test('saving an unchanged localized built-in classification leaves its translation dynamic', () => {
+  const ui = application(), original = ui.current();
+  ui.app.setLanguage('ko');
+  const source = ui.app.itemById('source-led-article');
+  classify(ui, 'subtag', 'tag:article', 'writing', source.tags[0]);
+  classify(ui, 'category', 'writing', '', ui.app.t('writing'));
+  assert.deepEqual(ui.current(), original);
+  assert.deepEqual(ui.current().layout.catalogMetadata, []);
+  ui.app.setLanguage('ja');
+  assert.deepEqual(clone(ui.app.itemById(source.id).tags), clone(source.translations.ja.tags));
+  assert.equal(ui.app.itemById(source.id).body, source.translations.ja.body);
 });

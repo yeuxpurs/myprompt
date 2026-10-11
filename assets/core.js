@@ -114,6 +114,40 @@
     }
     return result;
   }
+  function normalizeCatalogMetadata(input) {
+    if (input === undefined) return [];
+    if (!Array.isArray(input) || input.length > LIMITS.prompts) throw fail('Catalog metadata must contain up to ' + LIMITS.prompts + ' entries.');
+    var result = [];
+    var ids = new Set();
+    for (var i = 0; i < input.length; i += 1) {
+      var source = record(input[i], 'Catalog metadata');
+      var id = field(source, 'id');
+      if (!validId(id) || ids.has(id)) throw fail('Catalog metadata must contain distinct valid prompt ids.');
+      ids.add(id);
+      var entry = { id: id };
+      if (own(source, 'category')) {
+        if (typeof source.category !== 'string') throw fail('Catalog category must contain text.');
+        entry.category = string(source.category, 'Catalog category', LIMITS.category, false);
+      }
+      if (own(source, 'tagEdits')) {
+        var edits = source.tagEdits;
+        if (!Array.isArray(edits) || edits.length > LIMITS.tags) throw fail('Catalog tag edits must contain up to ' + LIMITS.tags + ' entries.');
+        entry.tagEdits = [];
+        var keys = new Set();
+        for (var j = 0; j < edits.length; j += 1) {
+          var edit = record(edits[j], 'Catalog tag edit');
+          var labels = normalizeTags([field(edit, 'key')]);
+          var key = labels.length ? tagIdentity(labels[0]) : '';
+          if (!key || key.indexOf('tag:') === 0 || key.length > LIMITS.tag || keys.has(key)) throw fail('Catalog tag edits must contain distinct canonical tag keys.');
+          keys.add(key);
+          var label = normalizeTags([field(edit, 'value')]);
+          entry.tagEdits.push({ key: key, value: label.length ? label[0] : '' });
+        }
+      }
+      result.push(entry);
+    }
+    return result;
+  }
   function normalizeLayout(input) {
     if (input === undefined) input = {};
     var value = record(input, 'Layout');
@@ -152,7 +186,7 @@
     for (var idIndex = 0; idIndex < ids.length; idIndex += 1) {
       if (!validId(ids[idIndex])) throw fail('Prompt order must contain prompt ids.');
     }
-    return { categoryOrder: categoryOrder, tagOrder: tagOrder, promptOrder: Array.from(new Set(ids)) };
+    return { categoryOrder: categoryOrder, tagOrder: tagOrder, promptOrder: Array.from(new Set(ids)), catalogMetadata: normalizeCatalogMetadata(field(value, 'catalogMetadata')) };
   }
   function reorder(list, fromIndex, toIndex) {
     if (!Array.isArray(list) || !Number.isInteger(fromIndex) || !Number.isInteger(toIndex) || fromIndex < 0 || toIndex < 0 || fromIndex >= list.length || toIndex >= list.length) throw fail('Choose valid items to reorder.', 'INVALID_ORDER');

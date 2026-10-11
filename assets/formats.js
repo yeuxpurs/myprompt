@@ -91,7 +91,7 @@
       if (row) arrange(row, names);
       else if (names.length) rows.push({ category: category, tags: names });
     });
-    document.layout = core.normalizeLayout({ categoryOrder: categories, tagOrder: rows, promptOrder: layout.promptOrder });
+    document.layout = core.normalizeLayout({ categoryOrder: categories, tagOrder: rows, promptOrder: layout.promptOrder, catalogMetadata: layout.catalogMetadata });
     return document;
   }
   function parseJSON(text) {
