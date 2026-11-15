@@ -28,7 +28,7 @@ function storage(initial) {
 }
 
 function application(saved = storage(state())) {
-  const nodes = new Map(), windowEvents = new Map();
+  const nodes = new Map(), windowEvents = new Map(), documentEvents = new Map();
   function node(id) {
     if (!nodes.has(id)) nodes.set(id, {
       id, innerHTML: '', textContent: '', value: '', hidden: true, open: false,
@@ -43,7 +43,7 @@ function application(saved = storage(state())) {
     localStorage: saved, URL, URLSearchParams, TextEncoder,
     location: { hash: '#my', protocol: 'file:', hostname: 'localhost' },
     navigator: {},
-    document: { getElementById: node, addEventListener() {}, querySelector: node, querySelectorAll: () => [], documentElement: {}, body: node('body') },
+    document: { getElementById: node, addEventListener: (name, handler) => documentEvents.set(name, handler), querySelector: node, querySelectorAll: () => [], documentElement: {}, body: node('body') },
     matchMedia: () => ({ matches: false, addEventListener() {} }),
     addEventListener: (name, handler) => windowEvents.set(name, handler),
     setTimeout: () => 1, clearTimeout() {}, scrollTo() {},
@@ -65,6 +65,11 @@ function application(saved = storage(state())) {
     undoDeletion, openDuplicates, t, catalogItems, promptTagEntries,
     categoryOptions, subtagOptions, openClassification, saveClassification,
     mergeCatalogMetadata,
+    card, filterRows, filteredItems, renderPage, syncFilters,
+    setOrganizing: function (value) { organizing = value; },
+    setRoute: function (value) { route = value; },
+    setSort: function (value) { sort = value; },
+    setTagsExpanded: function (value) { tagsExpanded = value; },
     setLanguage: function (value) { language = value; },
     state: function () { return JSON.stringify(state); }
   };
@@ -74,6 +79,7 @@ function application(saved = storage(state())) {
     app: context.applicationTest, node, saved,
     current: () => JSON.parse(context.applicationTest.state()),
     items: () => clone(context.applicationTest.items()),
+    click(target) { documentEvents.get('click')({ target: { closest: () => target } }); },
     dispatchStorage(next) { windowEvents.get('storage')({ key: 'myprompt.v2', newValue: JSON.stringify(next) }); }
   };
 }
@@ -397,4 +403,73 @@ test('saving an unchanged localized built-in classification leaves its translati
   ui.app.setLanguage('ja');
   assert.deepEqual(clone(ui.app.itemById(source.id).tags), clone(source.translations.ja.tags));
   assert.equal(ui.app.itemById(source.id).body, source.translations.ja.body);
+});
+
+test('the reading view omits reorder, delete and selection controls until organizing is on', () => {
+  const ui = application(storage(state({ prompts: [prompt({ tags: ['alpha'] })] })));
+  const item = ui.app.itemById('p-one');
+  const reading = ui.app.card(item) + ui.app.filterRows();
+  for (const marker of ['data-drag-handle', 'data-delete-prompt', 'data-select-prompt']) assert.equal(reading.includes(marker), false, marker);
+  assert.ok(reading.includes('data-edit-prompt="p-one"'));
+  assert.ok(reading.includes('data-action="toggle-tags"'));
+  assert.ok(reading.includes('data-category="writing"'));
+  ui.app.setOrganizing(true);
+  const organizing = ui.app.card(item) + ui.app.filterRows();
+  assert.ok(organizing.includes('data-drag-handle'));
+  assert.ok(organizing.includes('data-delete-prompt="p-one"'));
+  assert.equal(organizing.includes('data-action="toggle-tags"'), false, 'every sub-tag is a visible drop target while organizing');
+});
+
+test('removing a favorite immediately refreshes its category counts and empty results', () => {
+  const ui = application(storage(state({ prompts: [prompt()], favorites: ['p-one'] })));
+  ui.app.setRoute('favorites');
+  ui.app.renderPage();
+  assert.match(ui.node('page').innerHTML, /data-category=""[^>]*>All<span class="chip-count">1<\/span>/);
+  ui.click({
+    dataset: { favorite: 'p-one' },
+    classList: { contains: () => false },
+    hasAttribute: () => false
+  });
+  assert.deepEqual(ui.current().favorites, []);
+  assert.match(ui.node('page').innerHTML, /data-category=""[^>]*>All<span class="chip-count">0<\/span>/);
+  assert.match(ui.node('page').innerHTML, /data-category="writing"[^>]*>Writing<span class="chip-count">0<\/span>/);
+  assert.equal(ui.node('result-count').textContent, '0 prompts');
+});
+
+test('home uses the saved prompt order after newest sorting was selected in the library', () => {
+  const ui = application(storage(state({
+    prompts: [prompt(), prompt({ id: 'p-newer', updatedAt: '2026-11-16T00:00:00.000Z' })],
+    layout: { promptOrder: ['p-one', 'p-newer'] }
+  })));
+  ui.app.setSort('newest');
+  assert.equal(ui.app.filteredItems()[0].id, 'p-newer');
+  ui.app.setRoute('home');
+  ui.app.renderPage();
+  assert.deepEqual(clone(ui.app.filteredItems().slice(0, 2).map(p => p.id)), ['p-one', 'p-newer']);
+  assert.equal((ui.node('prompt-grid').innerHTML.match(/<article /g) || []).length, 6);
+});
+
+test('folded tags are inert until expanded and are updated when the viewport changes', () => {
+  const ui = application(), box = ui.node('subtag-filters'), toggle = { hidden: true };
+  const chip = top => ({ offsetTop: top, getBoundingClientRect: () => ({ top, bottom: top + 32 }) });
+  box.children = [chip(0), chip(38), chip(76)];
+  box.clientHeight = 32;
+  box.scrollHeight = 108;
+  box.scrollTop = 38;
+  box.getBoundingClientRect = () => ({ bottom: box.clientHeight });
+  box.querySelector = () => null;
+  box.parentElement = { querySelector: () => toggle };
+  ui.app.syncFilters();
+  assert.equal(toggle.hidden, false);
+  assert.equal(box.scrollTop, 0);
+  assert.deepEqual(box.children.map(c => c.inert), [false, true, true]);
+  box.clientHeight = 78;
+  ui.app.syncFilters();
+  assert.deepEqual(box.children.map(c => c.inert), [false, false, true]);
+  box.children[1].getBoundingClientRect = () => ({ top: 38, bottom: 100 });
+  ui.app.syncFilters();
+  assert.deepEqual(box.children.map(c => c.inert), [false, true, true], 'partially clipped wrapped tags also stay out of keyboard navigation');
+  ui.app.setTagsExpanded(true);
+  ui.app.syncFilters();
+  assert.deepEqual(box.children.map(c => c.inert), [false, false, false]);
 });

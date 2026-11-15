@@ -25,6 +25,9 @@
   let managing = false, selectedIds = new Set(), duplicateIds = new Set(), duplicateSnapshot = new Map();
   let duplicateMode = "body", pendingDelete = [], pendingDeleteSnapshot = new Map(), editorSnapshot = null;
   let editingClassifications = false, classificationTarget = null;
+  // "Organize" keeps reordering, bulk selection and classification editing out of the reading view.
+  let organizing = false, tagsExpanded = false, pendingTag = "";
+  const featuredCount = 6;
   const deleteBackupKey = "myprompt.delete-backup";
   let toastTimer,
     generated = "",
@@ -74,6 +77,10 @@
     creative: '<path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/>',
     grip: '<path d="M8 5h.01M16 5h.01M8 12h.01M16 12h.01M8 19h.01M16 19h.01" stroke-width="3"/>',
     menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+    pencil: '<path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/>',
+    sliders:
+      '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h7M15 18h5"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="13" cy="18" r="2"/>',
+    chevron: '<path d="m6 9 6 6 6-6"/>',
     globe:
       '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18"/>',
   };
@@ -205,7 +212,11 @@
   function orderAttrs(kind, key, group = "") {
     return `data-order-kind="${kind}" data-order-key="${escape(key)}" data-order-group="${escape(group)}"`;
   }
-  function dragHandle(name) {
+  function arranging() {
+    return organizing && route !== "home";
+  }
+  function dragHandle(name, always = false) {
+    if (!always && !arranging()) return "";
     return `<button type="button" class="drag-handle" data-drag-handle aria-label="${escape(t("moveItem", { name }))}" title="${escape(t("arrangementHint"))}">${icon("grip")}</button>`;
   }
   function tagChips(tags, clickable = false, prompt) {
@@ -222,7 +233,7 @@
   }
   function classificationControls(kind, key) {
     if (!editingClassifications || (kind === "category" && !key)) return "";
-    return `<span class="classification-actions"><button class="classification-button" data-classification-action="rename" aria-label="${escape(t("renameClassification"))}" title="${escape(t("renameClassification"))}">${icon("studio")}</button><button class="classification-button danger" data-classification-action="delete" aria-label="${escape(t("delete"))}" title="${escape(t("delete"))}">${icon("trash")}</button></span>`;
+    return `<span class="classification-actions"><button class="classification-button" data-classification-action="rename" aria-label="${escape(t("renameClassification"))}" title="${escape(t("renameClassification"))}">${icon("pencil")}</button><button class="classification-button danger" data-classification-action="delete" aria-label="${escape(t("delete"))}" title="${escape(t("delete"))}">${icon("trash")}</button></span>`;
   }
   function mergeCatalogMetadata(existing, incoming) {
     const rows = new Map(existing.map((row) => [row.id, { ...row }]));
@@ -358,20 +369,71 @@
     render();
     notify(t("classificationChanged"));
   }
+  function routeItems() {
+    let list = items();
+    if (route === "my") list = list.filter((p) => !p.builtIn);
+    if (route === "favorites")
+      list = list.filter((p) => state.favorites.includes(p.id));
+    return list;
+  }
   function filterRows() {
-    return `<div class="arrange-heading"><span>${escape(t("arrange"))}<small>${escape(t("arrangementHint"))}</small></span><div class="classification-heading-actions"><button class="btn quiet" data-action="manage-classifications" aria-pressed="${editingClassifications}">${icon("studio")}${escape(t(editingClassifications ? "finishClassification" : "manageClassification"))}</button><button class="btn quiet" data-action="layout-editor">${icon("coding")}${escape(t("layoutEditor"))}</button></div></div>${editingClassifications ? `<p class="classification-help">${escape(t("classificationHint"))}</p>` : ""}
-      <div class="filters" role="group" aria-label="${escape(t("categoryLabel"))}">${categorySequence()
-        .map(
-          (cat) =>
-            `<span class="sortable-chip ${category === cat ? "active" : ""}" ${orderAttrs("category", cat)}>${dragHandle(cat ? categoryName(cat) : t("all"))}<button class="filter" data-category="${escape(cat)}" aria-pressed="${category === cat}">${escape(cat ? categoryName(cat) : t("all"))}</button>${classificationControls("category", cat)}</span>`,
-        )
-        .join("")}</div>
-      <div class="subtag-row"><span class="subtag-label">${escape(t("subcategories"))}</span><div class="subtag-filters" role="group" aria-label="${escape(t("subcategories"))}"><button class="subtag-all ${!tagFilter ? "active" : ""}" data-filter-tag="" aria-pressed="${!tagFilter}">${escape(t("allSubtags"))}</button>${subtagOptions()
-        .map(
-          ([key, label]) =>
-            `<span class="sortable-chip subtag ${tagFilter === key ? "active" : ""}" ${orderAttrs("subtag", key, category)}>${dragHandle(label)}<button class="filter" data-filter-tag="${escape(key)}" aria-pressed="${tagFilter === key}">${key.startsWith("tag:") ? "#" : ""}${escape(label)}</button>${classificationControls("subtag", key)}</span>`,
-        )
-        .join("")}</div></div>`;
+    const edit = arranging(),
+      base = routeItems(),
+      subtags = subtagOptions();
+    const count = (cat) =>
+      (cat ? base.filter((p) => p.category === cat) : base).length;
+    const categoryChips = categorySequence()
+      .map((cat) => {
+        const name = cat ? categoryName(cat) : t("all");
+        return `<span class="sortable-chip ${category === cat ? "active" : ""}" ${orderAttrs("category", cat)}>${dragHandle(name)}<button class="filter" data-category="${escape(cat)}" aria-pressed="${category === cat}">${escape(name)}<span class="chip-count">${count(cat)}</span></button>${classificationControls("category", cat)}</span>`;
+      })
+      .join("");
+    const subtagChips = subtags
+      .map(
+        ([key, label]) =>
+          `<span class="sortable-chip subtag ${tagFilter === key ? "active" : ""}" ${orderAttrs("subtag", key, category)}>${dragHandle(label)}<button class="filter" data-filter-tag="${escape(key)}" aria-pressed="${tagFilter === key}">${key.startsWith("tag:") ? "#" : ""}${escape(label)}</button>${classificationControls("subtag", key)}</span>`,
+      )
+      .join("");
+    // Sub-tags stay on one line until asked for; organizing always shows every drop target.
+    const toggle = edit
+      ? ""
+      : `<button class="subtag-toggle" data-action="toggle-tags" aria-expanded="${tagsExpanded}" aria-controls="subtag-filters" hidden><span>${escape(tagsExpanded ? t("showFewerTags") : t("showAllTags", { count: subtags.length }))}</span>${icon("chevron")}</button>`;
+    return `<div class="filter-panel ${edit ? "organizing" : ""}">
+      <div class="filters" id="category-filters" role="group" aria-label="${escape(t("categoryLabel"))}">${categoryChips}</div>
+      ${subtags.length ? `<div class="subtag-row ${tagsExpanded || edit ? "expanded" : ""}"><span class="subtag-label">${escape(t("subcategories"))}</span><div class="subtag-filters" id="subtag-filters" role="group" aria-label="${escape(t("subcategories"))}"><button class="subtag-all ${!tagFilter ? "active" : ""}" data-filter-tag="" aria-pressed="${!tagFilter}">${escape(t("allSubtags"))}</button>${subtagChips}</div>${toggle}</div>` : ""}</div>`;
+  }
+  function syncFilters() {
+    const categoriesRow = document.getElementById("category-filters");
+    const activeCategory = categoriesRow?.querySelector?.(".sortable-chip.active");
+    // On narrow screens the category row scrolls sideways; keep the current one in view.
+    if (activeCategory && categoriesRow.scrollWidth > categoriesRow.clientWidth)
+      categoriesRow.scrollLeft =
+        activeCategory.offsetLeft - categoriesRow.offsetLeft - 12;
+    const box = document.getElementById("subtag-filters");
+    const toggle = box?.parentElement?.querySelector?.(".subtag-toggle");
+    if (!box || !toggle) return;
+    const chips = [...box.children];
+    if (!tagsExpanded) box.scrollTop = 0;
+    toggle.hidden = tagsExpanded
+      ? chips.length < 2 ||
+        chips[chips.length - 1].offsetTop === chips[0].offsetTop
+      : box.scrollHeight <= box.clientHeight + 4;
+    // Showing the toggle can wrap another chip, so measure after its layout settles.
+    const bottom = box.getBoundingClientRect().bottom;
+    const active = box.querySelector(".sortable-chip.active");
+    if (
+      active &&
+      !tagsExpanded &&
+      active.getBoundingClientRect().bottom > bottom + 1
+    ) {
+      // Never leave the selected sub-tag folded out of sight.
+      tagsExpanded = true;
+      renderPage();
+      return;
+    }
+    // Clipped tags must not remain hidden stops in keyboard or screen-reader navigation.
+    for (const chip of chips)
+      chip.inert = !tagsExpanded && chip.getBoundingClientRect().bottom > bottom + 1;
   }
   function persist() {
     state.language = language;
@@ -408,13 +470,13 @@
       <nav aria-label="${escape(t("workspace"))}"><p class="nav-label">${escape(t("workspace"))}</p>${navLink("home", "home", "home")}${navLink("library", "library", "library")}${navLink("studio", "studio", "studio")}${navLink("workflows", "workflows", "workflows")}${navLink("guide", "guide", "guide")}
       <p class="nav-label">${escape(t("personal"))}</p>${navLink("favorites", "star", "favorites", state.favorites.length)}${navLink("my", "folder", "myPrompts", state.prompts.length)}</nav>
       <div class="sidebar-bottom"><div class="storage-card"><strong>${icon("lock")}${escape(t("backup"))}</strong>${escape(t("localNote"))}<button class="source-link" data-action="layout-editor">${escape(t("layoutEditor"))} ↗</button><div class="backup-actions"><button data-action="export">${escape(t("export"))} ↗</button><button data-action="import">${escape(t("import"))} ↙</button></div></div><div class="sidebar-foot"><span class="live-dot"></span>GPT-6 · 2026 EDITION</div></div></aside>
-      <div class="shell"><header class="topbar"><button class="menu-button" data-action="menu" aria-label="${escape(t("mobileMenu"))}" aria-expanded="false" aria-controls="sidebar">${icon("menu")}</button><div class="crumb">myprompt <span>/</span> <strong>${escape(routeLabel())}</strong></div><div class="language-bar" role="group" aria-label="${escape(t("languageLabel"))}">${core.languages.map((lang) => `<button lang="${lang.code}" data-language="${lang.code}" aria-pressed="${language === lang.code}">${escape(lang.name)}</button>`).join("")}</div></header>
+      <div class="shell"><header class="topbar"><button class="menu-button" data-action="menu" aria-label="${escape(t("mobileMenu"))}" aria-expanded="false" aria-controls="sidebar">${icon("menu")}</button><div class="crumb"><span>myprompt</span><span aria-hidden="true">/</span><strong>${escape(routeLabel())}</strong></div><div class="language-bar" role="group" aria-label="${escape(t("languageLabel"))}">${core.languages.map((lang) => `<button lang="${lang.code}" data-language="${lang.code}" aria-pressed="${language === lang.code}">${escape(lang.name)}</button>`).join("")}</div><label class="language-select">${icon("globe")}<select id="language-select" aria-label="${escape(t("languageLabel"))}">${core.languages.map((lang) => `<option lang="${lang.code}" value="${lang.code}" ${language === lang.code ? "selected" : ""}>${escape(lang.name)}</option>`).join("")}</select></label></header>
       <main id="main-content" class="main" tabindex="-1"><div class="notice" id="storage-notice" role="alert" ${store.error ? "" : "hidden"}>${store.error ? escape(t("storageError")) : ""}</div><div id="page"></div><footer class="bottom-note"><span>${icon("lock")}${escape(t("footer"))}</span><a href="https://github.com/yeuxpurs/myprompt" target="_blank" rel="noopener noreferrer">GitHub ↗</a></footer></main></div>`;
     renderPage();
     syncSidebar();
   }
   function header(title, description) {
-    return `<header class="page-header"><div class="eyebrow"><span class="live-dot"></span>${escape(t("versionLabel"))}</div><h1>${escape(t(title))}</h1><p>${escape(t(description))}</p></header>`;
+    return `<header class="page-header"><h1>${escape(t(title))}</h1><p>${escape(t(description))}</p></header>`;
   }
   function renderPage() {
     const page = document.getElementById("page");
@@ -440,24 +502,35 @@
       my: ["myTitle", "myDescription"],
       favorites: ["favoritesTitle", "favoritesDescription"],
     };
-    page.innerHTML = home ? homeHero() : header(...titles[route]);
-    page.insertAdjacentHTML(
-      "beforeend",
-      `${home ? `<div class="section-head"><div><h2>${escape(t("featured"))}</h2><p>${escape(t("featuredDescription"))}</p></div><a href="#library">${escape(t("viewAll"))}${icon("arrow")}</a></div>` : ""}
-      <div class="tools-row"><div class="search-box">${icon("search")}<input id="search" type="search" aria-label="${escape(t("searchPlaceholder"))}" placeholder="${escape(t("searchPlaceholder"))}" value="${escape(query)}" autocomplete="off"><kbd aria-hidden="true">/</kbd></div>${home ? "" : `<button class="btn primary" data-action="new">${icon("plus")}${escape(t("addPrompt"))}</button>`}</div>
-      <div id="management-toolbar"></div>${filterRows()}<div class="result-meta"><span id="result-count" role="status"></span><select class="sort" id="sort" aria-label="${escape(t("sortLabel"))}"><option value="recommended" ${sort === "recommended" ? "selected" : ""}>${escape(t("promptOrder"))}</option><option value="newest" ${sort === "newest" ? "selected" : ""}>${escape(t("sortNewest"))}</option></select></div><div class="prompt-grid" id="prompt-grid"></div>`,
-    );
+    const searchBox = `<div class="search-box">${icon("search")}<input id="search" type="search" aria-label="${escape(t("searchPlaceholder"))}" placeholder="${escape(t("searchPlaceholder"))}" value="${escape(query)}" autocomplete="off"><kbd aria-hidden="true">/</kbd></div>`;
+    if (home) {
+      // Home is a starting point: a few prompts and shortcuts. Filters and tools live in the library.
+      category = "";
+      tagFilter = "";
+      page.innerHTML = `${homeHero()}${categoryTiles()}<div class="section-head"><div><h2>${escape(t("featured"))}</h2><p>${escape(t("featuredDescription"))}</p></div><a href="#library">${escape(t("viewAll"))}${icon("arrow")}</a></div><div class="tools-row">${searchBox}</div><div class="prompt-grid" id="prompt-grid"></div>`;
+    } else {
+      const edit = arranging();
+      page.innerHTML = `${header(...titles[route])}<div class="tools-row">${searchBox}<button class="btn ${edit ? "active" : ""}" data-action="organize" aria-pressed="${edit}">${icon(edit ? "check" : "sliders")}<span>${escape(t(edit ? "finishOrganizing" : "organize"))}</span></button><button class="btn primary" data-action="new">${icon("plus")}<span>${escape(t("addPrompt"))}</span></button></div>
+      <div id="management-toolbar"></div>${filterRows()}<div class="result-meta"><span id="result-count" role="status"></span><select class="sort" id="sort" aria-label="${escape(t("sortLabel"))}"><option value="recommended" ${sort === "recommended" ? "selected" : ""}>${escape(t("promptOrder"))}</option><option value="newest" ${sort === "newest" ? "selected" : ""}>${escape(t("sortNewest"))}</option></select></div><div class="prompt-grid ${edit ? "organizing" : ""}" id="prompt-grid"></div>`;
+    }
     renderGrid();
+    syncFilters();
+  }
+  function categoryTiles() {
+    const all = items();
+    return `<nav class="category-tiles" aria-label="${escape(t("categoryLabel"))}">${categoryOptions()
+      .map(
+        (cat) =>
+          `<a class="category-tile" href="#library?category=${encodeURIComponent(cat)}"><span class="category-icon ${categories.includes(cat) ? cat : ""}">${icon(cat)}</span><span class="category-tile-text"><strong>${escape(categoryName(cat))}</strong><small>${escape(t("resultCount", { count: all.filter((p) => p.category === cat).length }))}</small></span></a>`,
+      )
+      .join("")}</nav>`;
   }
   function homeHero() {
     return `<section class="hero"><div><div class="eyebrow"><span class="live-dot"></span>${escape(t("versionLabel"))}</div><h1>${escape(t("heroTitle"))}</h1><p>${escape(t("heroDescription"))}</p><div class="hero-actions"><a class="btn primary" href="#library">${escape(t("explore"))}${icon("arrow")}</a><button class="btn" data-action="new">${icon("plus")}${escape(t("createPrompt"))}</button></div></div><div class="hero-art" aria-hidden="true"><div class="orbit"></div><span class="art-dot"></span><span class="art-dot small"></span><div class="prompt-paper paper-back"></div><div class="prompt-paper"><div class="paper-top"><span>myprompt / 01</span>${icon("creative")}</div><div class="paper-line short"></div><div class="paper-line"></div><div class="paper-line medium"></div><div class="paper-line"></div><span class="paper-pill">{{ ${escape(t("goal"))} }}</span></div><span class="floating-tile">${icon("creative")}</span></div></section>
       <section class="stats" aria-label="${escape(t("library"))}"><div class="stat"><strong>${catalog.length.toString().padStart(2, "0")}</strong><span>${escape(t("statTemplates"))}</span></div><div class="stat"><strong>07</strong><span>${escape(t("statLanguages"))}</span></div><div class="stat"><strong>${state.prompts.length.toString().padStart(2, "0")}</strong><span>${escape(t("statYours"))}</span></div></section>`;
   }
   function filteredItems() {
-    let list = items();
-    if (route === "my") list = list.filter((p) => !p.builtIn);
-    if (route === "favorites")
-      list = list.filter((p) => state.favorites.includes(p.id));
+    let list = routeItems();
     if (category) list = list.filter((p) => p.category === category);
     if (tagFilter)
       list = list.filter(
@@ -485,7 +558,7 @@
           .toLocaleLowerCase(language)
           .includes(needle),
       );
-    if (sort === "newest")
+    if (sort === "newest" && route !== "home")
       list.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
     return list;
   }
@@ -495,10 +568,17 @@
     const availableIds = new Set(items().map((p) => p.id));
     selectedIds = new Set([...selectedIds].filter((id) => availableIds.has(id)));
     renderManagement();
-    const list = filteredItems();
-    document.getElementById("result-count").textContent = t("resultCount", {
-      count: list.length,
-    });
+    const matches = filteredItems();
+    // Without a search, home shows only the first few prompts of the saved order.
+    const list =
+      route === "home" && !query.trim()
+        ? matches.slice(0, featuredCount)
+        : matches;
+    const counter = document.getElementById("result-count");
+    if (counter)
+      counter.textContent = t("resultCount", {
+        count: list.length,
+      });
     grid.innerHTML = list.length
       ? list.map(card).join("")
       : `<div class="empty">${icon("search")}<h3>${escape(t("noResults"))}</h3><p>${escape(t("noResultsHint"))}</p><button class="btn" data-action="reset">${escape(t("resetFilters"))}</button> <button class="btn primary" data-action="new">${escape(t("addPrompt"))}</button></div>`;
@@ -509,7 +589,11 @@
   function renderManagement() {
     const toolbar = document.getElementById("management-toolbar");
     if (!toolbar) return;
-    toolbar.innerHTML = `<div class="management-toolbar"><button class="btn" data-action="manage" aria-pressed="${managing}">${escape(t(managing ? "finishManaging" : "managePrompts"))}</button><button class="btn" data-action="review-duplicates">${icon("copy")}${escape(t("reviewDuplicates"))}</button>${hasDeleteBackup() ? `<button class="btn quiet" data-action="undo">${escape(t("restoreDeleted"))}</button>` : ""}${managing ? `<button class="btn quiet" data-action="select-visible">${escape(t("selectVisible"))}</button><button class="btn quiet" data-action="clear-selection">${escape(t("clearSelection"))}</button><span role="status">${escape(t("selectedCount", {count: selectedIds.size}))}</span><button class="btn danger" data-action="delete-selected" ${selectedIds.size ? "" : "disabled"}>${icon("trash")}${escape(t("deleteSelected"))}</button>` : ""}</div>`;
+    if (!arranging()) {
+      toolbar.innerHTML = "";
+      return;
+    }
+    toolbar.innerHTML = `<section class="organize-panel" aria-label="${escape(t("organize"))}"><p class="organize-hint">${icon("grip")}<span>${escape(t("arrangementHint"))}</span></p><div class="management-toolbar"><button class="btn" data-action="manage" aria-pressed="${managing}">${icon("check")}${escape(t(managing ? "finishManaging" : "managePrompts"))}</button><button class="btn" data-action="review-duplicates">${icon("copy")}${escape(t("reviewDuplicates"))}</button><button class="btn" data-action="manage-classifications" aria-pressed="${editingClassifications}">${icon("pencil")}${escape(t(editingClassifications ? "finishClassification" : "manageClassification"))}</button><button class="btn" data-action="layout-editor">${icon("coding")}${escape(t("layoutEditor"))}</button>${hasDeleteBackup() ? `<button class="btn quiet" data-action="undo">${escape(t("restoreDeleted"))}</button>` : ""}</div>${editingClassifications ? `<p class="classification-help">${escape(t("classificationHint"))}</p>` : ""}${managing ? `<div class="selection-bar"><span role="status">${escape(t("selectedCount", {count: selectedIds.size}))}</span><button class="btn quiet" data-action="select-visible">${escape(t("selectVisible"))}</button><button class="btn quiet" data-action="clear-selection">${escape(t("clearSelection"))}</button><button class="btn danger" data-action="delete-selected" ${selectedIds.size ? "" : "disabled"}>${icon("trash")}${escape(t("deleteSelected"))}</button></div>` : ""}</section>`;
   }
   function openDuplicates() {
     const groups = core.findDuplicateGroups(items(), duplicateMode);
@@ -588,8 +672,11 @@
     }
   }
   function card(p) {
-    const favorite = state.favorites.includes(p.id);
-    return `<article class="prompt-card ${selectedIds.has(p.id) ? "is-selected" : ""}" ${orderAttrs("prompt", p.id)}>${managing ? `<label class="selection-label"><input type="checkbox" data-select-prompt="${escape(p.id)}" ${selectedIds.has(p.id) ? "checked" : ""}>${escape(t("selectPrompt", {title: p.title}))}</label>` : ""}<div class="card-top"><span class="category-icon ${categories.includes(p.category) ? p.category : ""}">${icon(p.category)}</span><div class="card-controls">${dragHandle(p.title)}<button class="icon-button quick-edit" data-edit-prompt="${escape(p.id)}" aria-label="${escape(t("edit"))}: ${escape(p.title)}">${icon("studio")}</button><button class="icon-button danger" data-delete-prompt="${escape(p.id)}" aria-label="${escape(t("delete"))}: ${escape(p.title)}">${icon("trash")}</button><button class="favorite-button" data-favorite="${escape(p.id)}" aria-label="${escape(t(favorite ? "unfavorite" : "favorite"))}: ${escape(p.title)}" aria-pressed="${favorite}">${icon("star")}</button></div></div><h3><button class="card-title" data-open="${escape(p.id)}">${escape(p.title)}</button></h3><p class="card-description">${escape(p.description || p.body.slice(0, 120))}</p>${p.section ? `<button class="section-badge" data-filter-tag="${escape(p.section)}">${escape(p.section)}</button>` : ""}${tagChips(p.tags, true, p)}<div class="card-bottom"><span class="tag">${escape(categoryName(p.category))} · ${escape(t(p.builtIn ? "curated" : catalog.some((item) => item.id === p.id) ? "customizedTemplate" : "custom"))}</span><button data-open="${escape(p.id)}">${escape(t("usePrompt"))}${icon("arrow")}</button></div></article>`;
+    const favorite = state.favorites.includes(p.id),
+      edit = arranging(),
+      selecting = edit && managing;
+    const kind = t(p.builtIn ? "curated" : catalog.some((item) => item.id === p.id) ? "customizedTemplate" : "custom");
+    return `<article class="prompt-card ${selectedIds.has(p.id) ? "is-selected" : ""}" ${orderAttrs("prompt", p.id)}>${selecting ? `<label class="selection-label"><input type="checkbox" data-select-prompt="${escape(p.id)}" ${selectedIds.has(p.id) ? "checked" : ""}>${escape(t("selectPrompt", {title: p.title}))}</label>` : ""}<div class="card-top"><span class="category-icon ${categories.includes(p.category) ? p.category : ""}">${icon(p.category)}</span><span class="card-kicker"><span>${escape(categoryName(p.category))}</span><small>${escape(kind)}</small></span><div class="card-controls">${dragHandle(p.title)}<button class="icon-button quick-edit" data-edit-prompt="${escape(p.id)}" aria-label="${escape(t("edit"))}: ${escape(p.title)}" title="${escape(t("edit"))}">${icon("pencil")}</button>${edit ? `<button class="icon-button danger" data-delete-prompt="${escape(p.id)}" aria-label="${escape(t("delete"))}: ${escape(p.title)}" title="${escape(t("delete"))}">${icon("trash")}</button>` : ""}<button class="favorite-button" data-favorite="${escape(p.id)}" aria-label="${escape(t(favorite ? "unfavorite" : "favorite"))}: ${escape(p.title)}" aria-pressed="${favorite}">${icon("star")}</button></div></div><h3><button class="card-title" data-open="${escape(p.id)}">${escape(p.title)}</button></h3><p class="card-description">${escape(p.description || p.body.slice(0, 120))}</p>${p.section ? `<button class="section-badge" data-filter-tag="${escape(p.section)}">${escape(p.section)}</button>` : ""}${tagChips(p.tags, true, p)}<div class="card-bottom"><button data-open="${escape(p.id)}">${escape(t("usePrompt"))}${icon("arrow")}</button></div></article>`;
   }
   function workflowsPage() {
     return (
@@ -635,7 +722,7 @@
     );
     openDialog(
       dialogHeader(selected.title, selected.description) +
-        `<div class="dialog-content"><div class="detail-metadata"><span class="tag">${escape(categoryName(selected.category))}</span>${tagChips(selected.tags)}</div><div class="detail-grid ${names.length ? "" : "single"}">${names.length ? `<section><p class="field-label">${escape(t("variables"))}</p><p class="hint" style="margin:8px 0 20px">${escape(t("detailHint"))}</p>${names.map((name, index) => `<div class="field"><label for="var-${index}">${escape(name)}</label><textarea id="var-${index}" data-variable="${escape(name)}" placeholder="${escape(t("variablePlaceholder", { name }))}" maxlength="100000" rows="2"></textarea></div>`).join("")}</section>` : ""}<section><p class="field-label">${escape(t("preview"))}</p><pre class="preview-text" id="detail-preview"></pre><p id="unresolved" class="unresolved"></p><div class="detail-actions"><button class="btn primary" data-action="copy-detail">${icon("copy")}${escape(t("copy"))}</button><a class="btn" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">${escape(t("openChatGPT"))} ↗</a></div><p class="privacy-hint">${escape(t("handoffHint"))}</p></section></div><div id="delete-confirm"></div></div><footer class="dialog-actions"><button class="btn quiet push-left" data-action="edit">${icon("studio")}${escape(t("edit"))}</button><button class="btn quiet danger" data-action="delete">${escape(t("delete"))}</button><button class="btn" data-action="duplicate">${icon("plus")}${escape(t("duplicate"))}</button><button class="btn" data-action="close">${escape(t("close"))}</button></footer>`,
+        `<div class="dialog-content"><div class="detail-metadata"><span class="tag">${escape(categoryName(selected.category))}</span>${tagChips(selected.tags)}</div><div class="detail-grid ${names.length ? "" : "single"}">${names.length ? `<section><p class="field-label">${escape(t("variables"))}</p><p class="hint" style="margin:8px 0 20px">${escape(t("detailHint"))}</p>${names.map((name, index) => `<div class="field"><label for="var-${index}">${escape(name)}</label><textarea id="var-${index}" data-variable="${escape(name)}" placeholder="${escape(t("variablePlaceholder", { name }))}" maxlength="100000" rows="2"></textarea></div>`).join("")}</section>` : ""}<section><p class="field-label">${escape(t("preview"))}</p><pre class="preview-text" id="detail-preview"></pre><p id="unresolved" class="unresolved"></p><div class="detail-actions"><button class="btn primary" data-action="copy-detail">${icon("copy")}${escape(t("copy"))}</button><a class="btn" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">${escape(t("openChatGPT"))} ↗</a></div><p class="privacy-hint">${escape(t("handoffHint"))}</p></section></div><div id="delete-confirm"></div></div><footer class="dialog-actions"><button class="btn quiet push-left" data-action="edit">${icon("pencil")}${escape(t("edit"))}</button><button class="btn quiet danger" data-action="delete">${escape(t("delete"))}</button><button class="btn" data-action="duplicate">${icon("plus")}${escape(t("duplicate"))}</button><button class="btn" data-action="close">${escape(t("close"))}</button></footer>`,
     );
     updateDetail();
   }
@@ -695,7 +782,7 @@
       ? editorTags
           .map(
             (tag, index) =>
-              `<span class="editable-tag ${index === editingTagIndex ? "editing" : ""}" ${orderAttrs("editor-tag", core.tagIdentity(tag))}>${dragHandle(tag)}<button type="button" data-rename-tag="${index}" aria-label="${escape(t("renameTag", { tag }))}">#${escape(tag)}</button><button type="button" data-remove-tag="${index}" aria-label="${escape(t("removeTag", { tag }))}">${icon("close")}</button></span>`,
+              `<span class="editable-tag ${index === editingTagIndex ? "editing" : ""}" ${orderAttrs("editor-tag", core.tagIdentity(tag))}>${dragHandle(tag, true)}<button type="button" data-rename-tag="${index}" aria-label="${escape(t("renameTag", { tag }))}">#${escape(tag)}</button><button type="button" data-remove-tag="${index}" aria-label="${escape(t("removeTag", { tag }))}">${icon("close")}</button></span>`,
           )
           .join("")
       : `<span class="hint">${escape(t("noTags"))}</span>`;
@@ -1235,19 +1322,52 @@
     } else if (wasOpen) button.focus();
   }
   mobileQuery.addEventListener("change", syncSidebar);
+  function switchLanguage(code) {
+    if (!locales[code]) return;
+    language = code;
+    persist();
+    generated = "";
+    render();
+  }
+  function refocusFilter(target, attribute, value) {
+    if (!target.closest(".filter-panel")) return;
+    [...document.querySelectorAll(`.filter-panel [${attribute}]`)]
+      .find((el) => el.getAttribute(attribute) === value)
+      ?.focus({ preventScroll: true });
+  }
+  function cardClick(event) {
+    // The whole card opens its prompt; while selecting, it toggles the checkbox instead.
+    const article = event.target.closest(".prompt-card");
+    if (!article || event.target.closest("label,input,select,textarea")) return;
+    if (String(window.getSelection?.() || "")) return;
+    const id = article.dataset.orderKey;
+    const box = article.querySelector("[data-select-prompt]");
+    if (!box) {
+      openDetail(id);
+      return;
+    }
+    box.checked = !box.checked;
+    if (box.checked) selectedIds.add(id);
+    else selectedIds.delete(id);
+    article.classList.toggle("is-selected", box.checked);
+    renderManagement();
+  }
   document.addEventListener("click", (event) => {
     const target = event.target.closest("button,a");
-    if (!target) return;
+    if (!target) {
+      cardClick(event);
+      return;
+    }
     if (target.classList.contains("skip")) {
       event.preventDefault();
       document.getElementById("main-content").focus();
       return;
     }
     if (target.dataset.language) {
-      language = target.dataset.language;
-      persist();
-      generated = "";
-      render();
+      switchLanguage(target.dataset.language);
+      document
+        .querySelector(`[data-language="${language}"]`)
+        ?.focus({ preventScroll: true });
       return;
     }
     if (target.dataset.classificationAction) {
@@ -1263,11 +1383,19 @@
       category = target.dataset.category;
       tagFilter = "";
       renderPage();
+      refocusFilter(target, "data-category", category);
       return;
     }
     if (target.hasAttribute("data-filter-tag")) {
+      if (route === "home") {
+        // Home has no filter row; continue in the library with this tag applied.
+        pendingTag = target.dataset.filterTag;
+        location.hash = "library";
+        return;
+      }
       tagFilter = target.dataset.filterTag;
       renderPage();
+      refocusFilter(target, "data-filter-tag", tagFilter);
       return;
     }
     if (target.hasAttribute("data-rename-tag")) {
@@ -1297,7 +1425,7 @@
         ? state.favorites.filter((value) => value !== id)
         : [...state.favorites, id];
       persist();
-      renderGrid();
+      renderPage();
       document
         .querySelector(`[data-favorite="${id}"]`)
         ?.focus({ preventScroll: true });
@@ -1316,9 +1444,31 @@
         renderTagEditor();
         document.getElementById("edit-tags").focus();
         break;
+      case "organize":
+        organizing = !arranging();
+        if (!organizing) {
+          managing = false;
+          selectedIds.clear();
+          editingClassifications = false;
+        }
+        renderPage();
+        document
+          .querySelector('[data-action="organize"]')
+          ?.focus({ preventScroll: true });
+        break;
+      case "toggle-tags":
+        tagsExpanded = !tagsExpanded;
+        renderPage();
+        document
+          .querySelector('[data-action="toggle-tags"]')
+          ?.focus({ preventScroll: true });
+        break;
       case "manage-classifications":
         editingClassifications = !editingClassifications;
         renderPage();
+        document
+          .querySelector('[data-action="manage-classifications"]')
+          ?.focus({ preventScroll: true });
         break;
       case "confirm-classification-delete":
         saveClassification(null);
@@ -1498,6 +1648,10 @@
     }
     if (event.target.id === "source-format")
       changeSourceFormat(event.target.value);
+    if (event.target.id === "language-select") {
+      switchLanguage(event.target.value);
+      document.getElementById("language-select")?.focus({ preventScroll: true });
+    }
     if (event.target.id === "sort") {
       sort = event.target.value;
       renderGrid();
@@ -1581,7 +1735,8 @@
     category =
       new URLSearchParams(location.hash.split("?")[1] || "").get("category") ||
       "";
-    tagFilter = "";
+    tagFilter = route === "home" ? "" : pendingTag;
+    pendingTag = "";
     query = "";
     selectedIds.clear();
     managing = false;
@@ -1589,6 +1744,7 @@
     render();
     window.scrollTo(0, 0);
   });
+  window.addEventListener("resize", syncFilters);
   // Other tabs may add prompts; read their state before subsequent edits.
   window.addEventListener("storage", (event) => {
     if (event.key === deleteBackupKey) { renderManagement(); return; }
